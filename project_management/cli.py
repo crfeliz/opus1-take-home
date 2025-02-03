@@ -62,11 +62,11 @@ def main():
         print(f"Board {args.board_id} title updated to {args.title}")
 
     elif args.command == "add_column":
-        column_id = app.add_column_to_board(args.board_id)
+        column_id = app.add_column(args.board_id)
         print(f"Column added to board {args.board_id} with ID: {column_id}")
 
     elif args.command == "remove_column":
-        app.remove_column_from_board(args.board_id, args.column_id)
+        app.remove_column(args.board_id, args.column_id)
         print(f"Column {args.column_id} removed from board {args.board_id}")
 
     elif args.command == "add_card":

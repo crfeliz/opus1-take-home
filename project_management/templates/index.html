@@ -19,7 +19,7 @@
 
     /* Left side: container for all controls */
     .controls {
-      max-width: 420px;
+      max-width: 1100px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -99,7 +99,6 @@
           <input type="text" id="load-board-id" placeholder="Board ID to render" />
           <button id="load-board-btn">Load Board</button>
         </div>
-      </fieldset>
 
       <!-- COLUMN Section -->
       <fieldset>
@@ -150,6 +149,8 @@
 
         <!-- Edit Card Title -->
         <div class="form-row">
+          <label for="column-id-edit-card-title">Column ID:</label>
+          <input type="text" id="column-id-edit-card-title" placeholder="Column ID" />
           <label for="card-id-edit-title">Card ID:</label>
           <input type="text" id="card-id-edit-title" placeholder="Card ID" />
           <label for="new-card-title">Title:</label>
@@ -159,6 +160,8 @@
 
         <!-- Edit Card Content -->
         <div class="form-row">
+          <label for="column-id-edit-card-content">Column ID:</label>
+          <input type="text" id="column-id-edit-card-content" placeholder="Column ID" />
           <label for="card-id-edit-content">Card ID:</label>
           <input type="text" id="card-id-edit-content" placeholder="Card ID" />
           <label for="new-card-content">Content:</label>
@@ -200,11 +203,10 @@
   </div> <!-- end .main-container -->
 
   <script>
-    const apiUrl = 'http://127.0.0.1:5000';  // Replace with your backend URL
+    const apiUrl = 'http://127.0.0.1:5000'; // Replace with your backend URL
+    let boardId = null; // Store the active board ID
 
-    let boardId = null;  // Active board ID
-
-    // ========== Utility ==========
+    // ========== UTILITY ==========
     async function fetchBoardState() {
       if (!boardId) return;
       const response = await fetch(`${apiUrl}/board_as_dict?board_id=${boardId}`);
@@ -235,10 +237,9 @@
       fetchBoardState();
     }
 
-    // Explicitly render a board by ID
     async function loadBoardById() {
-      const loadBoardField = document.getElementById('load-board-id');
-      const newBoardId = loadBoardField.value.trim();
+      const field = document.getElementById('load-board-id');
+      const newBoardId = field.value.trim();
       if (!newBoardId) return;
       boardId = newBoardId;
       fetchBoardState();
@@ -247,23 +248,27 @@
     // ========== COLUMN ==========
     async function addColumnToBoard() {
       if (!boardId) return;
-      const res = await fetch(`${apiUrl}/add_column_to_board`, {
+      await fetch(`${apiUrl}/add_column_to_board`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board_id: boardId }),
       });
-      await res.json();
       fetchBoardState();
     }
 
     async function editColumnTitle() {
+      if (!boardId) return;
       const columnId = document.getElementById('column-id-edit-title').value.trim();
       const newTitle = document.getElementById('new-column-title').value.trim();
       if (!columnId || !newTitle) return;
       await fetch(`${apiUrl}/edit_column_title`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: columnId, title: newTitle }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId,
+          title: newTitle
+        }),
       });
       fetchBoardState();
     }
@@ -275,7 +280,10 @@
       await fetch(`${apiUrl}/remove_column_from_board`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board_id: boardId, column_id: columnId }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId
+        }),
       });
       fetchBoardState();
     }
@@ -288,60 +296,88 @@
       await fetch(`${apiUrl}/move_column_within_board`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board_id: boardId, column_id: columnId, new_index: newIndex }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId,
+          new_index: newIndex
+        }),
       });
       fetchBoardState();
     }
 
     // ========== CARD ==========
     async function addCardToColumn() {
+      if (!boardId) return;
       const columnId = document.getElementById('column-id-add-card').value.trim();
       if (!columnId) return;
       await fetch(`${apiUrl}/add_card_to_column`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: columnId }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId
+        }),
       });
       fetchBoardState();
     }
 
     async function editCardTitle() {
+      if (!boardId) return;
+      const columnId = document.getElementById('column-id-edit-card-title').value.trim();
       const cardId = document.getElementById('card-id-edit-title').value.trim();
       const newTitle = document.getElementById('new-card-title').value.trim();
-      if (!cardId || !newTitle) return;
+      if (!columnId || !cardId || !newTitle) return;
       await fetch(`${apiUrl}/edit_card_title`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ card_id: cardId, title: newTitle }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId,
+          card_id: cardId,
+          title: newTitle
+        }),
       });
       fetchBoardState();
     }
 
     async function editCardContent() {
+      if (!boardId) return;
+      const columnId = document.getElementById('column-id-edit-card-content').value.trim();
       const cardId = document.getElementById('card-id-edit-content').value.trim();
       const newContent = document.getElementById('new-card-content').value.trim();
-      if (!cardId || !newContent) return;
+      if (!columnId || !cardId || !newContent) return;
       await fetch(`${apiUrl}/edit_card_content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ card_id: cardId, content: newContent }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId,
+          card_id: cardId,
+          content: newContent
+        }),
       });
       fetchBoardState();
     }
 
     async function removeCardFromColumn() {
+      if (!boardId) return;
       const columnId = document.getElementById('column-id-remove-card').value.trim();
       const cardId = document.getElementById('card-id-remove').value.trim();
       if (!columnId || !cardId) return;
       await fetch(`${apiUrl}/remove_card_from_column`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: columnId, card_id: cardId }),
+        body: JSON.stringify({
+          board_id: boardId,
+          column_id: columnId,
+          card_id: cardId
+        }),
       });
       fetchBoardState();
     }
 
     async function moveCard() {
+      if (!boardId) return;
       const fromColumnId = document.getElementById('from-column-id-move-card').value.trim();
       const toColumnId = document.getElementById('to-column-id-move-card').value.trim();
       const cardId = document.getElementById('card-id-move').value.trim();
@@ -350,12 +386,18 @@
       await fetch(`${apiUrl}/move_card`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from_column_id: fromColumnId, to_column_id: toColumnId, card_id: cardId, new_index: newIndex }),
+        body: JSON.stringify({
+          board_id: boardId,
+          from_column_id: fromColumnId,
+          to_column_id: toColumnId,
+          card_id: cardId,
+          new_index: newIndex
+        }),
       });
       fetchBoardState();
     }
 
-    // ========== Attach Listeners =========
+    // ========== ATTACH LISTENERS =========
     // Board
     document.getElementById('create-board-btn').addEventListener('click', createBoard);
     document.getElementById('edit-board-title-btn').addEventListener('click', editBoardTitle);

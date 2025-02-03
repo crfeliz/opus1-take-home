@@ -11,7 +11,7 @@ def main():
     app.edit_board_title(board_id, "Project Board")
 
     # Add a column
-    column_id = app.add_column_to_board(board_id)
+    column_id = app.add_column(board_id)
     app.edit_board_title(column_id, "To Do")
 
     # Add a card to the column
