@@ -8,6 +8,7 @@ function App() {
   const [boardData, setBoardData] = useState(null);
   const [loadBoardId, setLoadBoardId] = useState('');
 
+  // Create / Load board
   const createBoard = async () => {
     const res = await fetch(`${API_BASE_URL}/create_board`, {
       method: 'POST',
@@ -28,14 +29,13 @@ function App() {
     setBoardData(data.board);
   };
 
-  // Whenever boardId changes, fetch the board
   useEffect(() => {
     if (boardId) {
       fetchBoard(boardId);
     }
   }, [boardId]);
 
-  // Add a new column
+  // Add Column / Card
   const addColumn = async () => {
     if (!boardId) return;
     await fetch(`${API_BASE_URL}/add_column_to_board`, {
@@ -52,6 +52,39 @@ function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ board_id: boardId, column_id: colId })
+    });
+    fetchBoard(boardId);
+  };
+
+  // --------------------
+  // DRAG & DROP - Columns
+  // --------------------
+
+  // store payload in dataTransfer
+  const onDragStartColumn = (e, columnId) => {
+     const payload = { columnId };
+    e.dataTransfer.setData('payload', JSON.stringify(payload));
+  };
+
+  // must prevent default for onDragOver or drop won't fire
+  const onDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  // reorder serverside then fetch and rerender
+  const onDropColumn = async (e, dropIndex) => {
+    const payloadStr = e.dataTransfer.getData('payload');
+    if (!payloadStr) return;
+    const payload = JSON.parse(payloadStr);
+
+    await fetch(`${API_BASE_URL}/move_column_within_board`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        board_id: boardId,
+        column_id: payload.columnId,
+        new_index: dropIndex
+      })
     });
     fetchBoard(boardId);
   };
@@ -82,7 +115,6 @@ function App() {
         )}
       </div>
 
-      {/* If we have board data, show it */}
       {boardData && (
         <div className="p-3">
           <h2>{boardData.title || 'Untitled Board'}</h2>
@@ -92,8 +124,16 @@ function App() {
 
           <div className="d-flex flex-row flex-wrap">
             {boardData.columns &&
-              boardData.columns.map((col) => (
-                <div key={col.id} className="bg-secondary text-white p-3 me-3 rounded">
+              boardData.columns.map((col, colIndex) => (
+                <div
+                  key={col.id}
+                  className="bg-secondary text-white p-3 me-3 rounded"
+                  style={{ width: '200px' }}
+                  draggable // Make column draggable
+                  onDragStart={(e) => onDragStartColumn(e, col.id)} // capture info of what we're dragging
+                  onDragOver={onDragOver} // Must have to allow drop
+                  onDrop={(e) => onDropColumn(e, colIndex)} // when we are the drop target our index is the target index
+                >
                   <strong>{col.title || 'Untitled Column'}</strong>
                   <div className="mt-2">
                     <button
@@ -113,6 +153,15 @@ function App() {
                   </div>
                 </div>
               ))}
+
+            {/* drop zone at the end for reordering columns to last */}
+            <div
+              style={{ width: '40px', background: '#222' }}
+              onDragOver={onDragOver}
+              onDrop={(e) =>
+                onDropColumn(e, boardData.columns.length)
+              }
+            />
           </div>
         </div>
       )}
