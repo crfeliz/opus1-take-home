@@ -4,16 +4,16 @@ import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
 
 export default function Column({
-                                   col,
-                                   colIndex,
-                                   boardId,
-                                   removeColumn,
-                                   moveColumn,
-                                   fetchBoard,
-                                   API_BASE_URL,
-                                   dragType,
-                                   setDragType
-                               }) {
+    col,
+    colIndex,
+    boardId,
+    removeColumn,
+    moveColumn,
+    fetchBoard,
+    API_BASE_URL,
+    dragType,
+    setDragType
+}) {
     // For remove-button
     const [isColumnHovered, setIsColumnHovered] = useState(false)
     const [isAnyCardHovered, setIsAnyCardHovered] = useState(false)
@@ -177,8 +177,9 @@ export default function Column({
                 </style>
 
                 {/* Column Title & Remove */}
-                <h3 className="text-info">
-                    <div className="d-flex align-items-center justify-content-between mb-2">
+
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                    <h3 className="text-info">
                         <EditText
                             defaultValue={col.title || 'Untitled Column'}
                             onSave={(data) => updateColumnTitle(data.value)}
@@ -200,8 +201,9 @@ export default function Column({
                         >
                             ✖️
                         </button>
-                    </div>
-                </h3>
+                    </h3>
+                </div>
+
 
                 {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
                     <div

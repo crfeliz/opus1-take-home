@@ -3,16 +3,16 @@ import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
 
 export default function Card({
-                                 card,
-                                 cardIndex,
-                                 boardId,
-                                 colId,
-                                 fetchBoard,
-                                 API_BASE_URL,
-                                 onHoverChange,
-                                 dragType,
-                                 setDragType
-                             }) {
+    card,
+    cardIndex,
+    boardId,
+    colId,
+    fetchBoard,
+    API_BASE_URL,
+    onHoverChange,
+    dragType,
+    setDragType
+}) {
     const [isHovered, setIsHovered] = useState(false)
     const [dropPosition, setDropPosition] = useState(null) // 'above' or 'below'
 
