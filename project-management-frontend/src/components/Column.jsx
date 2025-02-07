@@ -178,12 +178,12 @@ export default function Column({
 
                 {/* Column Title & Remove */}
 
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                    <h3 className="text-info">
+
+                    <div className="d-flex align-items-center justify-content-between mb-2">
                         <EditText
                             defaultValue={col.title || 'Untitled Column'}
                             onSave={(data) => updateColumnTitle(data.value)}
-                            className="edit-text"
+                            className="edit-text text-info h3"
                             inputClassName="editing-text"
                         />
                         <button
@@ -201,11 +201,12 @@ export default function Column({
                         >
                             ✖️
                         </button>
-                    </h3>
-                </div>
+
+                    </div>
 
 
-                {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
+
+            {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
                     <div
                         style={{
                             minHeight: '50px',

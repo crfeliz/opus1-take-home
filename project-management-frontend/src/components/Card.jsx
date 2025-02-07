@@ -144,7 +144,7 @@ export default function Card({
         <div
             style={{
                 position: 'relative',
-                margin: '-1', // negative margin causes slight overlap to prevent jitter when dropping precisely between.
+                margin: '-1px', // negative margin causes slight overlap to prevent jitter when dropping precisely between.
                 minHeight: '116px'
             }}
             onMouseEnter={handleMouseEnter}
@@ -190,32 +190,31 @@ export default function Card({
           `}
                 </style>
 
-                <h5 className="text-info">
-                    <div className="d-flex justify-content-between align-items-center">
-                        <EditText
-                            defaultValue={card.title || 'Untitled Card'}
-                            onSave={(data) => updateCardTitle(data.value)}
-                            className="edit-text"
-                            inputClassName="editing-text"
-                            multiline
-                        />
-                        <button
-                            className="close-btn btn btn-sm rounded-circle"
-                            onClick={removeCard}
-                            style={{
-                                width: '2rem',
-                                height: '2rem',
-                                visibility: isHovered ? 'visible' : 'hidden',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                color: 'inherit',
-                                transition: 'background-color 0.2s ease-in-out'
-                            }}
-                        >
-                            ✖️
-                        </button>
-                    </div>
-                </h5>
+                <div className="d-flex justify-content-between align-items-center">
+                    <EditText
+                        defaultValue={card.title || 'Untitled Card'}
+                        onSave={(data) => updateCardTitle(data.value)}
+                        className="edit-text text-info h5"
+                        inputClassName="editing-text"
+                        multiline
+                    />
+                    <button
+                        className="close-btn btn btn-sm rounded-circle"
+                        onClick={removeCard}
+                        style={{
+                            width: '2rem',
+                            height: '2rem',
+                            visibility: isHovered ? 'visible' : 'hidden',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            color: 'inherit',
+                            transition: 'background-color 0.2s ease-in-out'
+                        }}
+                    >
+                        ✖️
+                    </button>
+                </div>
+
                 <div className="mt-1">
                     <EditText
                         defaultValue={card.content || 'No content'}
