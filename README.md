@@ -1,12 +1,28 @@
-# A simple event sourced project management app
+# 🛠️ Event-Sourced Project Management App
 
-### To run the backend:
-`from the root directory`
-`source ./venv/bin/activate`
-`pip install -r requirements.txt`
-`python3 app.py`
+A simple event-sourced project management application.
 
-### To run the frontend
-`cd project-management-frontend`
-`npm install`
-`npm run dev`
+---
+
+### 🏗️ Backend Setup
+
+From the **root directory**, run:
+
+```sh
+source ./venv/bin/activate
+pip install -r requirements.txt
+python3 app.py
+```
+
+---
+
+### 🎨 Frontend Setup
+
+From the **`project-management-frontend`** directory, run:
+
+```sh
+npm install
+npm run dev
+```
+
+---
