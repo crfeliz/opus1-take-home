@@ -1,400 +1,401 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Project Management App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Project Management App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
 
-    /* Container with controls on the left and board JSON on the right */
-    .main-container {
-      display: flex;
-      gap: 20px;
-      align-items: flex-start;
-    }
+        /* Container with controls on the left and board JSON on the right */
+        .main-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
 
-    /* Left side: container for all controls */
-    .controls {
-      max-width: 1100px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+        /* Left side: container for all controls */
+        .controls {
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
 
-    /* Group each entity's operations in a fieldset for clarity */
-    fieldset {
-      border: 1px solid #ccc;
-      padding: 10px;
-    }
-    legend {
-      font-weight: bold;
-      margin-left: 10px;
-      padding: 0 5px;
-    }
+        /* Group each entity's operations in a fieldset for clarity */
+        fieldset {
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
 
-    /* Keep labels, inputs, buttons in a small vertical gap */
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-bottom: 5px;
-      align-items: center;
-    }
+        legend {
+            font-weight: bold;
+            margin-left: 10px;
+            padding: 0 5px;
+        }
 
-    .form-row label {
-      font-size: 0.9rem;
-      margin-right: 4px;
-    }
+        /* Keep labels, inputs, buttons in a small vertical gap */
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 5px;
+            align-items: center;
+        }
 
-    .form-row input,
-    .form-row button {
-      font-size: 0.85rem;
-      padding: 5px;
-    }
+        .form-row label {
+            font-size: 0.9rem;
+            margin-right: 4px;
+        }
 
-    /* Right side: Board state display */
-    .board-details {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #ddd;
-      background-color: #f9f9f9;
-      max-height: 90vh;
-      overflow-y: auto; /* scroll if JSON is large */
-      min-width: 300px;
-    }
-  </style>
+        .form-row input,
+        .form-row button {
+            font-size: 0.85rem;
+            padding: 5px;
+        }
+
+        /* Right side: Board state display */
+        .board-details {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            max-height: 90vh;
+            overflow-y: auto; /* scroll if JSON is large */
+            min-width: 300px;
+        }
+    </style>
 </head>
 <body>
 
-  <h1>Project Management App</h1>
+<h1>Project Management App</h1>
 
-  <div class="main-container">
+<div class="main-container">
 
     <!-- Left side: Controls -->
     <div class="controls">
 
-      <!-- BOARD Section -->
-      <fieldset>
-        <legend>Board</legend>
+        <!-- BOARD Section -->
+        <fieldset>
+            <legend>Board</legend>
 
-        <!-- Create Board -->
-        <div class="form-row">
-          <button id="create-board-btn">Create New Board</button>
-        </div>
+            <!-- Create Board -->
+            <div class="form-row">
+                <button id="create-board-btn">Create New Board</button>
+            </div>
 
-        <!-- Edit Board Title -->
-        <div class="form-row">
-          <label for="board-title">Board Title:</label>
-          <input type="text" id="board-title" placeholder="Enter new board title" />
-          <button id="edit-board-title-btn">Edit Board Title</button>
-        </div>
+            <!-- Edit Board Title -->
+            <div class="form-row">
+                <label for="board-title">Board Title:</label>
+                <input type="text" id="board-title" placeholder="Enter new board title"/>
+                <button id="edit-board-title-btn">Edit Board Title</button>
+            </div>
 
-        <!-- Load Board by ID -->
-        <div class="form-row">
-          <label for="load-board-id">Board ID:</label>
-          <input type="text" id="load-board-id" placeholder="Board ID to render" />
-          <button id="load-board-btn">Load Board</button>
-        </div>
+            <!-- Load Board by ID -->
+            <div class="form-row">
+                <label for="load-board-id">Board ID:</label>
+                <input type="text" id="load-board-id" placeholder="Board ID to render"/>
+                <button id="load-board-btn">Load Board</button>
+            </div>
 
-      <!-- COLUMN Section -->
-      <fieldset>
-        <legend>Column</legend>
+            <!-- COLUMN Section -->
+            <fieldset>
+                <legend>Column</legend>
 
-        <!-- Add Column -->
-        <div class="form-row">
-          <button id="add-column-btn">Add Column</button>
-          <small>(Uses active board)</small>
-        </div>
+                <!-- Add Column -->
+                <div class="form-row">
+                    <button id="add-column-btn">Add Column</button>
+                    <small>(Uses active board)</small>
+                </div>
 
-        <!-- Edit Column Title -->
-        <div class="form-row">
-          <label for="column-id-edit-title">Column ID:</label>
-          <input type="text" id="column-id-edit-title" placeholder="Column ID" />
-          <label for="new-column-title">Title:</label>
-          <input type="text" id="new-column-title" placeholder="New Column Title" />
-          <button id="edit-column-title-btn">Edit Column Title</button>
-        </div>
+                <!-- Edit Column Title -->
+                <div class="form-row">
+                    <label for="column-id-edit-title">Column ID:</label>
+                    <input type="text" id="column-id-edit-title" placeholder="Column ID"/>
+                    <label for="new-column-title">Title:</label>
+                    <input type="text" id="new-column-title" placeholder="New Column Title"/>
+                    <button id="edit-column-title-btn">Edit Column Title</button>
+                </div>
 
-        <!-- Remove Column -->
-        <div class="form-row">
-          <label for="column-id-remove">Column ID:</label>
-          <input type="text" id="column-id-remove" placeholder="Column ID" />
-          <button id="remove-column-btn">Remove Column</button>
-        </div>
+                <!-- Remove Column -->
+                <div class="form-row">
+                    <label for="column-id-remove">Column ID:</label>
+                    <input type="text" id="column-id-remove" placeholder="Column ID"/>
+                    <button id="remove-column-btn">Remove Column</button>
+                </div>
 
-        <!-- Move Column -->
-        <div class="form-row">
-          <label for="column-id-move">Column ID:</label>
-          <input type="text" id="column-id-move" placeholder="Column ID" />
-          <label for="new-column-index">Index:</label>
-          <input type="number" id="new-column-index" placeholder="New Index" style="width: 70px;" />
-          <button id="move-column-btn">Move Column</button>
-        </div>
-      </fieldset>
+                <!-- Move Column -->
+                <div class="form-row">
+                    <label for="column-id-move">Column ID:</label>
+                    <input type="text" id="column-id-move" placeholder="Column ID"/>
+                    <label for="new-column-index">Index:</label>
+                    <input type="number" id="new-column-index" placeholder="New Index" style="width: 70px;"/>
+                    <button id="move-column-btn">Move Column</button>
+                </div>
+            </fieldset>
 
-      <!-- CARD Section -->
-      <fieldset>
-        <legend>Card</legend>
+            <!-- CARD Section -->
+            <fieldset>
+                <legend>Card</legend>
 
-        <!-- Add Card to Column -->
-        <div class="form-row">
-          <label for="column-id-add-card">Column ID:</label>
-          <input type="text" id="column-id-add-card" placeholder="Column ID" />
-          <button id="add-card-btn">Add Card</button>
-        </div>
+                <!-- Add Card to Column -->
+                <div class="form-row">
+                    <label for="column-id-add-card">Column ID:</label>
+                    <input type="text" id="column-id-add-card" placeholder="Column ID"/>
+                    <button id="add-card-btn">Add Card</button>
+                </div>
 
-        <!-- Edit Card Title -->
-        <div class="form-row">
-          <label for="column-id-edit-card-title">Column ID:</label>
-          <input type="text" id="column-id-edit-card-title" placeholder="Column ID" />
-          <label for="card-id-edit-title">Card ID:</label>
-          <input type="text" id="card-id-edit-title" placeholder="Card ID" />
-          <label for="new-card-title">Title:</label>
-          <input type="text" id="new-card-title" placeholder="New Card Title" />
-          <button id="edit-card-title-btn">Edit Title</button>
-        </div>
+                <!-- Edit Card Title -->
+                <div class="form-row">
+                    <label for="column-id-edit-card-title">Column ID:</label>
+                    <input type="text" id="column-id-edit-card-title" placeholder="Column ID"/>
+                    <label for="card-id-edit-title">Card ID:</label>
+                    <input type="text" id="card-id-edit-title" placeholder="Card ID"/>
+                    <label for="new-card-title">Title:</label>
+                    <input type="text" id="new-card-title" placeholder="New Card Title"/>
+                    <button id="edit-card-title-btn">Edit Title</button>
+                </div>
 
-        <!-- Edit Card Content -->
-        <div class="form-row">
-          <label for="column-id-edit-card-content">Column ID:</label>
-          <input type="text" id="column-id-edit-card-content" placeholder="Column ID" />
-          <label for="card-id-edit-content">Card ID:</label>
-          <input type="text" id="card-id-edit-content" placeholder="Card ID" />
-          <label for="new-card-content">Content:</label>
-          <input type="text" id="new-card-content" placeholder="New Card Content" />
-          <button id="edit-card-content-btn">Edit Content</button>
-        </div>
+                <!-- Edit Card Content -->
+                <div class="form-row">
+                    <label for="column-id-edit-card-content">Column ID:</label>
+                    <input type="text" id="column-id-edit-card-content" placeholder="Column ID"/>
+                    <label for="card-id-edit-content">Card ID:</label>
+                    <input type="text" id="card-id-edit-content" placeholder="Card ID"/>
+                    <label for="new-card-content">Content:</label>
+                    <input type="text" id="new-card-content" placeholder="New Card Content"/>
+                    <button id="edit-card-content-btn">Edit Content</button>
+                </div>
 
-        <!-- Remove Card -->
-        <div class="form-row">
-          <label for="column-id-remove-card">Column ID:</label>
-          <input type="text" id="column-id-remove-card" placeholder="Column ID" />
-          <label for="card-id-remove">Card ID:</label>
-          <input type="text" id="card-id-remove" placeholder="Card ID" />
-          <button id="remove-card-btn">Remove Card</button>
-        </div>
+                <!-- Remove Card -->
+                <div class="form-row">
+                    <label for="column-id-remove-card">Column ID:</label>
+                    <input type="text" id="column-id-remove-card" placeholder="Column ID"/>
+                    <label for="card-id-remove">Card ID:</label>
+                    <input type="text" id="card-id-remove" placeholder="Card ID"/>
+                    <button id="remove-card-btn">Remove Card</button>
+                </div>
 
-        <!-- Move Card -->
-        <div class="form-row">
-          <label for="from-column-id-move-card">From Column ID:</label>
-          <input type="text" id="from-column-id-move-card" placeholder="Column ID" />
-          <label for="to-column-id-move-card">To Column ID:</label>
-          <input type="text" id="to-column-id-move-card" placeholder="Column ID" />
-          <label for="card-id-move">Card ID:</label>
-          <input type="text" id="card-id-move" placeholder="Card ID" />
-          <label for="new-card-index">Index:</label>
-          <input type="number" id="new-card-index" placeholder="New Index" style="width: 70px;" />
-          <button id="move-card-btn">Move Card</button>
-        </div>
-      </fieldset>
+                <!-- Move Card -->
+                <div class="form-row">
+                    <label for="from-column-id-move-card">From Column ID:</label>
+                    <input type="text" id="from-column-id-move-card" placeholder="Column ID"/>
+                    <label for="to-column-id-move-card">To Column ID:</label>
+                    <input type="text" id="to-column-id-move-card" placeholder="Column ID"/>
+                    <label for="card-id-move">Card ID:</label>
+                    <input type="text" id="card-id-move" placeholder="Card ID"/>
+                    <label for="new-card-index">Index:</label>
+                    <input type="number" id="new-card-index" placeholder="New Index" style="width: 70px;"/>
+                    <button id="move-card-btn">Move Card</button>
+                </div>
+            </fieldset>
 
     </div>
 
     <!-- Right side: Board State -->
     <div class="board-details" id="board-details">
-      <h3>Board State:</h3>
-      <pre id="board-state">No board yet.</pre>
+        <h3>Board State:</h3>
+        <pre id="board-state">No board yet.</pre>
     </div>
 
-  </div> <!-- end .main-container -->
+</div> <!-- end .main-container -->
 
-  <script>
+<script>
     const apiUrl = 'http://127.0.0.1:5000'; // Replace with your backend URL
     let boardId = null; // Store the active board ID
 
     // ========== UTILITY ==========
     async function fetchBoardState() {
-      if (!boardId) return;
-      const response = await fetch(`${apiUrl}/board_as_dict?board_id=${boardId}`);
-      const data = await response.json();
-      displayBoardState(data);
+        if (!boardId) return;
+        const response = await fetch(`${apiUrl}/board_as_dict?board_id=${boardId}`);
+        const data = await response.json();
+        displayBoardState(data);
     }
 
     function displayBoardState(data) {
-      document.getElementById('board-state').textContent = JSON.stringify(data, null, 2);
+        document.getElementById('board-state').textContent = JSON.stringify(data, null, 2);
     }
 
     // ========== BOARD ==========
     async function createBoard() {
-      const res = await fetch(`${apiUrl}/create_board`, { method: 'POST' });
-      const data = await res.json();
-      boardId = data.board_id;
-      fetchBoardState();
+        const res = await fetch(`${apiUrl}/create_board`, {method: 'POST'});
+        const data = await res.json();
+        boardId = data.board_id;
+        fetchBoardState();
     }
 
     async function editBoardTitle() {
-      const title = document.getElementById('board-title').value.trim();
-      if (!title || !boardId) return;
-      await fetch(`${apiUrl}/edit_board_title`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board_id: boardId, title }),
-      });
-      fetchBoardState();
+        const title = document.getElementById('board-title').value.trim();
+        if (!title || !boardId) return;
+        await fetch(`${apiUrl}/edit_board_title`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({board_id: boardId, title}),
+        });
+        fetchBoardState();
     }
 
     async function loadBoardById() {
-      const field = document.getElementById('load-board-id');
-      const newBoardId = field.value.trim();
-      if (!newBoardId) return;
-      boardId = newBoardId;
-      fetchBoardState();
+        const field = document.getElementById('load-board-id');
+        const newBoardId = field.value.trim();
+        if (!newBoardId) return;
+        boardId = newBoardId;
+        fetchBoardState();
     }
 
     // ========== COLUMN ==========
     async function addColumnToBoard() {
-      if (!boardId) return;
-      await fetch(`${apiUrl}/add_column_to_board`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board_id: boardId }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        await fetch(`${apiUrl}/add_column_to_board`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({board_id: boardId}),
+        });
+        fetchBoardState();
     }
 
     async function editColumnTitle() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-edit-title').value.trim();
-      const newTitle = document.getElementById('new-column-title').value.trim();
-      if (!columnId || !newTitle) return;
-      await fetch(`${apiUrl}/edit_column_title`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId,
-          title: newTitle
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-edit-title').value.trim();
+        const newTitle = document.getElementById('new-column-title').value.trim();
+        if (!columnId || !newTitle) return;
+        await fetch(`${apiUrl}/edit_column_title`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId,
+                title: newTitle
+            }),
+        });
+        fetchBoardState();
     }
 
     async function removeColumnFromBoard() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-remove').value.trim();
-      if (!columnId) return;
-      await fetch(`${apiUrl}/remove_column_from_board`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-remove').value.trim();
+        if (!columnId) return;
+        await fetch(`${apiUrl}/remove_column_from_board`, {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId
+            }),
+        });
+        fetchBoardState();
     }
 
     async function moveColumnWithinBoard() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-move').value.trim();
-      const newIndex = document.getElementById('new-column-index').value.trim();
-      if (!columnId || !newIndex) return;
-      await fetch(`${apiUrl}/move_column_within_board`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId,
-          new_index: newIndex
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-move').value.trim();
+        const newIndex = document.getElementById('new-column-index').value.trim();
+        if (!columnId || !newIndex) return;
+        await fetch(`${apiUrl}/move_column_within_board`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId,
+                new_index: newIndex
+            }),
+        });
+        fetchBoardState();
     }
 
     // ========== CARD ==========
     async function addCardToColumn() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-add-card').value.trim();
-      if (!columnId) return;
-      await fetch(`${apiUrl}/add_card_to_column`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-add-card').value.trim();
+        if (!columnId) return;
+        await fetch(`${apiUrl}/add_card_to_column`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId
+            }),
+        });
+        fetchBoardState();
     }
 
     async function editCardTitle() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-edit-card-title').value.trim();
-      const cardId = document.getElementById('card-id-edit-title').value.trim();
-      const newTitle = document.getElementById('new-card-title').value.trim();
-      if (!columnId || !cardId || !newTitle) return;
-      await fetch(`${apiUrl}/edit_card_title`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId,
-          card_id: cardId,
-          title: newTitle
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-edit-card-title').value.trim();
+        const cardId = document.getElementById('card-id-edit-title').value.trim();
+        const newTitle = document.getElementById('new-card-title').value.trim();
+        if (!columnId || !cardId || !newTitle) return;
+        await fetch(`${apiUrl}/edit_card_title`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId,
+                card_id: cardId,
+                title: newTitle
+            }),
+        });
+        fetchBoardState();
     }
 
     async function editCardContent() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-edit-card-content').value.trim();
-      const cardId = document.getElementById('card-id-edit-content').value.trim();
-      const newContent = document.getElementById('new-card-content').value.trim();
-      if (!columnId || !cardId || !newContent) return;
-      await fetch(`${apiUrl}/edit_card_content`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId,
-          card_id: cardId,
-          content: newContent
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-edit-card-content').value.trim();
+        const cardId = document.getElementById('card-id-edit-content').value.trim();
+        const newContent = document.getElementById('new-card-content').value.trim();
+        if (!columnId || !cardId || !newContent) return;
+        await fetch(`${apiUrl}/edit_card_content`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId,
+                card_id: cardId,
+                content: newContent
+            }),
+        });
+        fetchBoardState();
     }
 
     async function removeCardFromColumn() {
-      if (!boardId) return;
-      const columnId = document.getElementById('column-id-remove-card').value.trim();
-      const cardId = document.getElementById('card-id-remove').value.trim();
-      if (!columnId || !cardId) return;
-      await fetch(`${apiUrl}/remove_card_from_column`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          column_id: columnId,
-          card_id: cardId
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const columnId = document.getElementById('column-id-remove-card').value.trim();
+        const cardId = document.getElementById('card-id-remove').value.trim();
+        if (!columnId || !cardId) return;
+        await fetch(`${apiUrl}/remove_card_from_column`, {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                column_id: columnId,
+                card_id: cardId
+            }),
+        });
+        fetchBoardState();
     }
 
     async function moveCard() {
-      if (!boardId) return;
-      const fromColumnId = document.getElementById('from-column-id-move-card').value.trim();
-      const toColumnId = document.getElementById('to-column-id-move-card').value.trim();
-      const cardId = document.getElementById('card-id-move').value.trim();
-      const newIndex = document.getElementById('new-card-index').value.trim();
-      if (!fromColumnId || !toColumnId || !cardId || newIndex === '') return;
-      await fetch(`${apiUrl}/move_card`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          board_id: boardId,
-          from_column_id: fromColumnId,
-          to_column_id: toColumnId,
-          card_id: cardId,
-          new_index: newIndex
-        }),
-      });
-      fetchBoardState();
+        if (!boardId) return;
+        const fromColumnId = document.getElementById('from-column-id-move-card').value.trim();
+        const toColumnId = document.getElementById('to-column-id-move-card').value.trim();
+        const cardId = document.getElementById('card-id-move').value.trim();
+        const newIndex = document.getElementById('new-card-index').value.trim();
+        if (!fromColumnId || !toColumnId || !cardId || newIndex === '') return;
+        await fetch(`${apiUrl}/move_card`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                board_id: boardId,
+                from_column_id: fromColumnId,
+                to_column_id: toColumnId,
+                card_id: cardId,
+                new_index: newIndex
+            }),
+        });
+        fetchBoardState();
     }
 
     // ========== ATTACH LISTENERS =========
@@ -415,6 +416,6 @@
     document.getElementById('edit-card-content-btn').addEventListener('click', editCardContent);
     document.getElementById('remove-card-btn').addEventListener('click', removeCardFromColumn);
     document.getElementById('move-card-btn').addEventListener('click', moveCard);
-  </script>
+</script>
 </body>
 </html>

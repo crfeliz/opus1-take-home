@@ -3,11 +3,14 @@ import uuid
 from eventsourcing.application import Application
 from eventsourcing.domain import Aggregate, event
 
+
 def find_item_by_id(collection, item_id):
     return next((item for item in collection if item.id == item_id), None)
 
+
 def edit_item_by_id(collection, item_id, f):
     f(find_item_by_id(collection, item_id))
+
 
 def remove_item_by_id(collection, item_id):
     item_to_remove = find_item_by_id(collection, item_id)
@@ -15,19 +18,24 @@ def remove_item_by_id(collection, item_id):
         raise ValueError(f"Item with ID {item_id} not found in collection {collection}")
     collection.remove(item_to_remove)
 
+
 def debug_print_ids(collection):
     print("----------")
     print(list(map(lambda v: v.id, collection)))
     print("----------")
 
-def move_item_by_id(collection, item_id, new_index):
+
+def with_item_moved_by_id(collection, item_id, new_index):
     item_index = next((i for i, item in enumerate(collection) if item.id == item_id), None)
     debug_print_ids(collection)
     if item_index is None:
         raise ValueError(f"Item {item_id} not found in {collection}")
 
-    item = collection.pop(item_index)
+    item = collection[item_index]
+    collection[item_index] = None
     collection.insert(new_index, item)
+    return list(filter(None, collection))
+
 
 class Card:
     def __init__(self, card_id):
@@ -35,11 +43,13 @@ class Card:
         self.title = ""
         self.content = ""
 
+
 class Column:
     def __init__(self, column_id):
         self.id = column_id
         self.title = ""
         self.cards = []
+
 
 class Board(Aggregate):
     @event("BOARD_CREATED")
@@ -62,7 +72,8 @@ class Board(Aggregate):
 
     @event("COLUMN_MOVED")
     def move_column(self, column_id, new_index):
-        move_item_by_id(self.columns, column_id, new_index)
+        # this operation creates a new array
+        self.columns = with_item_moved_by_id(self.columns, column_id, new_index)
 
     @event("COLUMN_TITLE_EDITED")
     def edit_column_title(self, column_id, title):
@@ -96,7 +107,7 @@ class Board(Aggregate):
     @event("CARD_MOVED")
     def move_card(self, column_id, card_id, new_index):
         column = find_item_by_id(self.columns, column_id)
-        move_item_by_id(column.cards, card_id, new_index)
+        column.cards = with_item_moved_by_id(column.cards, card_id, new_index)
 
     def get_card(self, column_id, card_id):
         column = find_item_by_id(self.columns, column_id)
@@ -188,8 +199,6 @@ class ProjectManagementApp(Application):
         card_uuid = uuid.UUID(card_id)
         board = self.repository.get(board_uuid)
 
-        # This is why. I need to somehow move the card over to the other column without passing the actual card object
-        # into the aggregator.
         if from_column_uuid != to_column_uuid:
             card = board.get_card(from_column_uuid, card_uuid)
             board.remove_card(from_column_uuid, card_uuid)
@@ -222,6 +231,7 @@ class ProjectManagementApp(Application):
                 ],
             }
         }
+
 
 os.environ['PERSISTENCE_MODULE'] = 'eventsourcing.sqlite'
 os.environ['SQLITE_DBNAME'] = 'events.db'

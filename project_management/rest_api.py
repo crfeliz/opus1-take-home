@@ -7,6 +7,7 @@ CORS(app)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app_instance = ProjectManagementApp()
 
+
 @app.route('/')
 def index():
     return render_template('index.html')

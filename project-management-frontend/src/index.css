@@ -1,5 +1,13 @@
 body {
-  margin: 0;
-  padding: 0;
-  background: #111;
+    margin: 0;
+    padding: 0;
+    background: #111;
+}
+
+.edit-text {
+    background-color: transparent;
+}
+
+.editing-text {
+    background-color: white;
 }

@@ -1,6 +1,7 @@
 import unittest
 from project_management.project_management import ProjectManagementApp, Board, Column, Card
 
+
 class TestProjectManagementApp(unittest.TestCase):
 
     def setUp(self):
@@ -81,7 +82,7 @@ class TestProjectManagementApp(unittest.TestCase):
         card_id2 = self.app.add_card(board_id, column_id)
 
         # Move card1 to the second position in the same column
-        self.app.move_card(board_id, column_id, column_id, card_id1, 1)
+        self.app.move_card(board_id, column_id, column_id, card_id1, 2)
 
         # Fetch the board and check card order
         board_dict = self.app.board_as_dict(board_id)
@@ -126,7 +127,7 @@ class TestProjectManagementApp(unittest.TestCase):
         column_id2 = self.app.add_column(board_id)
 
         # Move column1 to second position
-        self.app.move_column(board_id, column_id1, 1)
+        self.app.move_column(board_id, column_id1, 2)
 
         # Fetch the board and check column order
         board_dict = self.app.board_as_dict(board_id)
