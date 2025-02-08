@@ -4,6 +4,10 @@ body {
     background: #111;
 }
 
+.close-btn:hover {
+  background-color: #EE4B2B !important;
+}
+
 .edit-text {
     background-color: transparent;
 }

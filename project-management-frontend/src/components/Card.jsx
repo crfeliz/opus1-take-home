@@ -182,14 +182,6 @@ export default function Card({
                     />
                 )}
 
-                <style>
-                    {`
-            .close-btn:hover {
-              background-color: #ff7074 !important;
-            }
-          `}
-                </style>
-
                 <div className="d-flex justify-content-between align-items-center">
                     <EditText
                         defaultValue={card.title || 'Untitled Card'}
@@ -199,19 +191,20 @@ export default function Card({
                         multiline
                     />
                     <button
-                        className="close-btn btn btn-sm rounded-circle"
+                        className="close-btn btn d-flex align-items-center justify-content-center"
                         onClick={removeCard}
                         style={{
-                            width: '2rem',
-                            height: '2rem',
+                            width: '22px',
+                            height: '22px',
+                            paddingBottom: '8px',
                             visibility: isHovered ? 'visible' : 'hidden',
                             backgroundColor: 'transparent',
                             border: 'none',
-                            color: 'inherit',
+                            color: 'rgb(187,187,187)',
                             transition: 'background-color 0.2s ease-in-out'
                         }}
                     >
-                        ✖️
+                        &times;
                     </button>
                 </div>
 

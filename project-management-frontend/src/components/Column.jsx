@@ -168,13 +168,6 @@ export default function Column({
                     borderRight: dropPosition === 'right' ? '4px solid yellow' : 'none',
                 }}
             >
-                <style>
-                    {`
-            .close-btn:hover {
-              background-color: #ff7074 !important;
-            }
-          `}
-                </style>
 
                 {/* Column Title & Remove */}
 
@@ -187,19 +180,20 @@ export default function Column({
                             inputClassName="editing-text"
                         />
                         <button
-                            className="close-btn btn btn-sm rounded-circle"
+                            className="close-btn btn d-flex align-items-center justify-content-center"
                             onClick={() => removeColumn(col.id)}
                             style={{
-                                width: '2rem',
-                                height: '2rem',
+                                width: '22px',
+                                height: '22px',
+                                paddingBottom: '8px',
                                 visibility: (isColumnHovered && !isAnyCardHovered) ? 'visible' : 'hidden',
                                 backgroundColor: 'transparent',
                                 border: 'none',
-                                color: 'inherit',
+                                color: 'rgb(187,187,187)',
                                 transition: 'background-color 0.2s ease-in-out'
                             }}
                         >
-                            ✖️
+                            &times;
                         </button>
 
                     </div>
