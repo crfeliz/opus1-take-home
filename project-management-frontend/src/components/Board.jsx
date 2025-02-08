@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react'
 import Column from './Column.jsx'
 import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
+import {boardService, columnService} from "../services/services.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'
 
@@ -13,11 +14,7 @@ export default function Board() {
 
     // CREATE / LOAD
     const createBoard = async () => {
-        const res = await fetch(`${API_BASE_URL}/create_board`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-        })
-        const data = await res.json()
+        const data = await boardService.create()
         setBoardId(data.board_id)
     }
 
@@ -28,62 +25,41 @@ export default function Board() {
 
     const fetchBoard = async (id) => {
         if (!id) return
-        const res = await fetch(`${API_BASE_URL}/board_as_dict?board_id=${id}`)
-        const data = await res.json()
+        const data = await boardService.get(id)
         setBoardData(data.board)
     }
 
     useEffect(() => {
         if (boardId) {
-            fetchBoard(boardId)
+            fetchBoard(boardId).catch((err) => console.log("Load board failed", err))
         }
     }, [boardId])
 
     // Edit board title
     const updateBoardTitle = async (newVal) => {
         if (!boardId || !newVal.trim()) return
-        await fetch(`${API_BASE_URL}/edit_board_title`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId, title: newVal}),
-        })
-        fetchBoard(boardId)
+        await boardService.updateTitle(boardId, newVal.trim())
+        await fetchBoard(boardId)
     }
 
     // Add / Remove columns
     const addColumn = async () => {
         if (!boardId) return
-        await fetch(`${API_BASE_URL}/add_column_to_board`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId}),
-        })
-        fetchBoard(boardId)
+        await columnService.add(boardId)
+        await fetchBoard(boardId)
     }
 
     const removeColumn = async (colId) => {
         if (!boardId || !colId) return
-        await fetch(`${API_BASE_URL}/remove_column_from_board`, {
-            method: 'DELETE',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId, column_id: colId}),
-        })
-        fetchBoard(boardId)
+        await columnService.remove(boardId, colId)
+        await fetchBoard(boardId)
     }
 
     // Move columns left/right
     const moveColumn = async (columnId, newIndex) => {
         if (!boardId || !columnId) return
-        await fetch(`${API_BASE_URL}/move_column_within_board`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                board_id: boardId,
-                column_id: columnId,
-                new_index: newIndex,
-            }),
-        })
-        fetchBoard(boardId)
+        await columnService.move(boardId, columnId, newIndex)
+        await fetchBoard(boardId)
     }
 
     // Copy board ID

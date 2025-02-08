@@ -2,6 +2,7 @@ import React, {useState} from 'react'
 import Card from './Card.jsx'
 import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
+import {cardService, columnService} from "../services/services.js";
 
 export default function Column({
     col,
@@ -21,7 +22,9 @@ export default function Column({
     // 'left' or 'right' or null
     const [dropPosition, setDropPosition] = useState(null)
 
-    const handleColumnMouseEnter = () => setIsColumnHovered(true)
+    const handleColumnMouseEnter = () => {
+        setIsColumnHovered(true)
+    }
     const handleColumnMouseLeave = () => {
         setIsColumnHovered(false)
         setDropPosition(null)
@@ -32,23 +35,15 @@ export default function Column({
     // Edit column title
     const updateColumnTitle = async (newVal) => {
         if (!boardId || !col.id || !newVal.trim()) return
-        await fetch(`${API_BASE_URL}/edit_column_title`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId, column_id: col.id, title: newVal}),
-        })
-        fetchBoard(boardId)
+        await columnService.updateTitle(boardId, col.id, newVal.trim())
+        await fetchBoard(boardId)
     }
 
     // Add card
     const addCard = async () => {
         if (!boardId || !col.id) return
-        await fetch(`${API_BASE_URL}/add_card_to_column`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId, column_id: col.id}),
-        })
-        fetchBoard(boardId)
+        await cardService.add(boardId, col.id)
+        await fetchBoard(boardId)
     }
 
     // DRAG & DROP for columns
@@ -108,19 +103,8 @@ export default function Column({
         const data = JSON.parse(dataStr)
         if (data.type !== 'card') return
 
-        // Insert at index=0
-        await fetch(`${API_BASE_URL}/move_card`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                board_id: boardId,
-                from_column_id: data.fromColumnId,
-                to_column_id: col.id,
-                card_id: data.cardId,
-                new_index: 0,
-            }),
-        })
-        fetchBoard(boardId)
+        await cardService.move(boardId, data.fromColumnId, col.id, data.cardId, 0)
+        await fetchBoard(boardId)
         setDragType(null)
     }
 
@@ -130,6 +114,10 @@ export default function Column({
         translateOffset = '10px' // visually shift right
     } else if (dropPosition === 'right') {
         translateOffset = '-10px' // visually shift left
+    }
+
+    if (isAnyCardHovered && col.cards.length === 0) {
+        setIsAnyCardHovered(false) // fix edge case when dragging last card from column.
     }
 
     return (
@@ -164,43 +152,39 @@ export default function Column({
                     padding: '1rem',
                     transition: 'transform 0.2s ease',
                     transform: `translateX(${translateOffset})`,
-                    borderLeft: dropPosition === 'left' ? '4px solid yellow' : 'none',
-                    borderRight: dropPosition === 'right' ? '4px solid yellow' : 'none',
                 }}
             >
-
-                {/* Column Title & Remove */}
-
-
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                        <EditText
-                            defaultValue={col.title || 'Untitled Column'}
-                            onSave={(data) => updateColumnTitle(data.value)}
-                            className="edit-text text-info h3"
-                            inputClassName="editing-text"
-                        />
-                        <button
-                            className="close-btn btn d-flex align-items-center justify-content-center"
-                            onClick={() => removeColumn(col.id)}
-                            style={{
-                                width: '22px',
-                                height: '22px',
-                                paddingBottom: '8px',
-                                visibility: (isColumnHovered && !isAnyCardHovered) ? 'visible' : 'hidden',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                color: 'rgb(187,187,187)',
-                                transition: 'background-color 0.2s ease-in-out'
-                            }}
-                        >
-                            &times;
-                        </button>
-
-                    </div>
-
+                {/* Remove */}
+                <button
+                    className="close-btn btn d-flex align-items-center justify-content-center"
+                    onClick={() => removeColumn(col.id)}
+                    style={{
+                        width: '22px',
+                        height: '22px',
+                        paddingBottom: '8px',
+                        visibility: (isColumnHovered && !isAnyCardHovered) ? 'visible' : 'hidden',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: 'rgb(187,187,187)',
+                        transition: 'background-color 0.2s ease-in-out',
+                        float: 'right'
+                    }}
+                >
+                    &times;
+                </button>
+                {/* Column Title */}
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                    <EditText
+                        defaultValue={col.title || 'Untitled'}
+                        onSave={(data) => updateColumnTitle(data.value)}
+                        className="edit-text text-info h3"
+                        inputClassName="editing-text"
+                        style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    />
+                </div>
 
 
-            {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
+                {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
                     <div
                         style={{
                             minHeight: '50px',
@@ -245,7 +229,7 @@ export default function Column({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginTop: '1rem'
+                        marginTop: '0'
                     }}
                     onClick={addCard}
                 >

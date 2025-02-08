@@ -5,7 +5,7 @@ body {
 }
 
 .close-btn:hover {
-  background-color: #EE4B2B !important;
+    background-color: #EE4B2B !important;
 }
 
 .edit-text {
@@ -14,4 +14,23 @@ body {
 
 .editing-text {
     background-color: white;
+}
+
+.card-visual {
+    max-height: 155px;
+}
+
+.edit-content {
+    width: 100%;
+    max-height: 120px;
+    overflow-y: hidden !important;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    resize: none;
+    scrollbar-gutter: stable;
+}
+
+.edit-content:hover {
+    overflow-y: auto !important;
 }
