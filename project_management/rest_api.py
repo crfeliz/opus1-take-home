@@ -3,10 +3,15 @@ from flask_cors import CORS
 from project_management.project_management import ProjectManagementApp
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app_instance = ProjectManagementApp()
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    response = jsonify(message=str(e))
+    response.status_code = 500
+    return response
 
 @app.route('/')
 def index():
