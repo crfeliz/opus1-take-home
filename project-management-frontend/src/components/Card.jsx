@@ -1,6 +1,7 @@
 import React, {useState} from 'react'
-import {EditText} from 'react-edit-text'
+import {EditText, EditTextarea} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
+import {cardService} from "../services/services.js";
 
 export default function Card({
     card,
@@ -15,6 +16,7 @@ export default function Card({
 }) {
     const [isHovered, setIsHovered] = useState(false)
     const [dropPosition, setDropPosition] = useState(null) // 'above' or 'below'
+    const [currentDragTargetId, setCurrentDragTargetId] = useState(null)
 
     const handleMouseEnter = () => {
         setIsHovered(true)
@@ -29,44 +31,22 @@ export default function Card({
     // Remove card
     const removeCard = async () => {
         if (!boardId || !colId || !card.id) return
-        await fetch(`${API_BASE_URL}/remove_card_from_column`, {
-            method: 'DELETE',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({board_id: boardId, column_id: colId, card_id: card.id}),
-        })
-        fetchBoard(boardId)
+        await cardService.remove(boardId, colId, card.id)
+        await fetchBoard(boardId)
     }
 
     // Update card title
     const updateCardTitle = async (newVal) => {
         if (!boardId || !colId || !card.id || !newVal.trim()) return
-        await fetch(`${API_BASE_URL}/edit_card_title`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                board_id: boardId,
-                column_id: colId,
-                card_id: card.id,
-                title: newVal,
-            }),
-        })
-        fetchBoard(boardId)
+        await cardService.updateTitle(boardId, colId, card.id, newVal.trim())
+        await fetchBoard(boardId)
     }
 
     // Update card content
     const updateCardContent = async (newVal) => {
         if (!boardId || !colId || !card.id) return
-        await fetch(`${API_BASE_URL}/edit_card_content`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                board_id: boardId,
-                column_id: colId,
-                card_id: card.id,
-                content: newVal,
-            }),
-        })
-        fetchBoard(boardId)
+        await cardService.updateContent(boardId, colId, card.id, newVal)
+        await fetchBoard(boardId)
     }
 
     // DRAG & DROP
@@ -78,10 +58,17 @@ export default function Card({
             fromColumnId: colId,
             cardId: card.id,
         }))
+
+        // timeout to give the browser time to generate the drag ghost
+        setTimeout(() => {
+            setCurrentDragTargetId(card.id)
+        }, 0)
+
     }
 
-    const handleDragEnd = () => {
+    const handleDragEnd = (e) => {
         setDragType(null)
+        setCurrentDragTargetId(null)
     }
 
     const handleDragOver = (e) => {
@@ -114,22 +101,14 @@ export default function Card({
         // If "below", newIndex = cardIndex + 1
         const newIndex = (dropPosition === 'above') ? cardIndex : (cardIndex + 1)
 
-        await fetch(`${API_BASE_URL}/move_card`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                board_id: boardId,
-                from_column_id: data.fromColumnId,
-                to_column_id: colId,
-                card_id: data.cardId,
-                new_index: newIndex,
-            }),
-        })
-        fetchBoard(boardId)
+        await cardService.move(boardId, data.fromColumnId, colId, data.cardId, newIndex)
+        await fetchBoard(boardId)
 
         setDropPosition(null)
         setDragType(null)
     }
+
+    let isBeingDragged = card.id === currentDragTargetId;
 
     // SHIFT only the visual portion
     let translateOffset = '0px'
@@ -145,7 +124,8 @@ export default function Card({
             style={{
                 position: 'relative',
                 margin: '-1px', // negative margin causes slight overlap to prevent jitter when dropping precisely between.
-                minHeight: '116px'
+                height: '140px',
+                visibility: isBeingDragged ? 'hidden' : 'visible'
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -167,71 +147,43 @@ export default function Card({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                {/* highlight bar if "above" */}
-                {dropPosition === 'above' && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '5px',
-                            background: 'yellow',
-                            borderRadius: '2px'
-                        }}
-                    />
-                )}
-
+                <button
+                    className="close-btn btn d-flex align-items-center justify-content-center"
+                    onClick={removeCard}
+                    style={{
+                        width: '22px',
+                        height: '22px',
+                        paddingBottom: '8px',
+                        visibility: isHovered && !isBeingDragged ? 'visible' : 'hidden',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: 'rgb(187,187,187)',
+                        transition: 'background-color 0.2s ease-in-out',
+                        float: 'right'
+                    }}
+                >
+                    &times;
+                </button>
                 <div className="d-flex justify-content-between align-items-center">
                     <EditText
-                        defaultValue={card.title || 'Untitled Card'}
+                        defaultValue={card.title || 'Untitled'}
                         onSave={(data) => updateCardTitle(data.value)}
                         className="edit-text text-info h5"
                         inputClassName="editing-text"
-                        multiline
+                        style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+
                     />
-                    <button
-                        className="close-btn btn d-flex align-items-center justify-content-center"
-                        onClick={removeCard}
-                        style={{
-                            width: '22px',
-                            height: '22px',
-                            paddingBottom: '8px',
-                            visibility: isHovered ? 'visible' : 'hidden',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            color: 'rgb(187,187,187)',
-                            transition: 'background-color 0.2s ease-in-out'
-                        }}
-                    >
-                        &times;
-                    </button>
                 </div>
 
                 <div className="mt-1">
-                    <EditText
+                    <EditTextarea
                         defaultValue={card.content || 'No content'}
                         onSave={(data) => updateCardContent(data.value)}
-                        className="edit-text"
+                        className="edit-text edit-content"
                         inputClassName="editing-text"
-                        multiline
+                        rows={2}
                     />
                 </div>
-
-                {/* highlight bar if "below" */}
-                {dropPosition === 'below' && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '5px',
-                            background: 'yellow',
-                            borderRadius: '2px'
-                        }}
-                    />
-                )}
             </div>
         </div>
     )
