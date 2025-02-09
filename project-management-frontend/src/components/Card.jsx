@@ -9,14 +9,13 @@ export default function Card({
     boardId,
     colId,
     fetchBoard,
-    API_BASE_URL,
     onHoverChange,
-    dragType,
-    setDragType
+    dragStartInfo,
+    setDragStartInfo,
+    parentColumnIsBeingDragged
 }) {
     const [isHovered, setIsHovered] = useState(false)
-    const [dropPosition, setDropPosition] = useState(null) // 'above' or 'below'
-    const [currentDragTargetId, setCurrentDragTargetId] = useState(null)
+    const [dropPosition, setDropPosition] = useState(null) // 'before' or 'after'
     const [isEditing, setIsEditing] = useState(false);
 
 
@@ -59,36 +58,31 @@ export default function Card({
             return
         }
 
-        setDragType('card')
-        e.dataTransfer.setData('payload', JSON.stringify({
-            type: 'card',
-            fromColumnId: colId,
-            cardId: card.id,
-        }))
-
         // timeout to give the browser time to generate the drag ghost
         setTimeout(() => {
-            setCurrentDragTargetId(card.id)
+            setDragStartInfo({type: 'card', fromColumnId: colId, id: card.id, index: cardIndex})
         }, 0)
 
     }
 
     const handleDragEnd = (e) => {
-        setDragType(null)
-        setCurrentDragTargetId(null)
+        setDragStartInfo({})
     }
 
     const handleDragOver = (e) => {
         e.preventDefault()
-        if (dragType !== 'card') return
+        if (dragStartInfo.type !== 'card') return
 
         const rect = e.currentTarget.getBoundingClientRect()
         const y = e.clientY - rect.top
-        if (y < rect.height / 2) {
-            setDropPosition('above')
-        } else {
-            setDropPosition('below')
-        }
+        const isBefore = y < rect.height / 2;
+
+        // Prevent shift animation when the card being dragged wouldn't change positions
+        const noMovementIndex = isBefore ? cardIndex - 1 : cardIndex + 1;
+        if (dragStartInfo.fromColumnId === colId &&
+            dragStartInfo.index === noMovementIndex) return;
+
+        setDropPosition(isBefore ? 'before' : 'after');
     }
 
     const handleDragLeave = () => {
@@ -97,31 +91,24 @@ export default function Card({
 
     const handleDrop = async (e) => {
         e.preventDefault()
-        if (dragType !== 'card') return
+        if (dragStartInfo.type !== 'card') return
 
-        const dataStr = e.dataTransfer.getData('payload')
-        if (!dataStr || !boardId) return
-        const data = JSON.parse(dataStr)
-        if (data.type !== 'card') return
+        const newIndex = (dropPosition === 'before') ? cardIndex : (cardIndex + 1)
 
-        // If "above", newIndex = cardIndex
-        // If "below", newIndex = cardIndex + 1
-        const newIndex = (dropPosition === 'above') ? cardIndex : (cardIndex + 1)
-
-        await cardService.move(boardId, data.fromColumnId, colId, data.cardId, newIndex)
+        await cardService.move(boardId, dragStartInfo.fromColumnId, colId, dragStartInfo.id, newIndex)
         await fetchBoard(boardId)
 
         setDropPosition(null)
-        setDragType(null)
+        setDragStartInfo({})
     }
 
-    let isBeingDragged = card.id === currentDragTargetId;
+    let isBeingDragged = parentColumnIsBeingDragged || card.id === dragStartInfo.id;
 
     // SHIFT only the visual portion
     let translateOffset = '0px'
-    if (dropPosition === 'above') {
+    if (dropPosition === 'before') {
         translateOffset = '10px'
-    } else if (dropPosition === 'below') {
+    } else if (dropPosition === 'after') {
         translateOffset = '-10px'
     }
 

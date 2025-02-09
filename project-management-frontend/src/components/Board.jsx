@@ -4,13 +4,12 @@ import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
 import {boardService, columnService} from "../services/services.js";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'
 
 export default function Board() {
     const [boardId, setBoardId] = useState(null)
     const [boardData, setBoardData] = useState(null)
     const [loadBoardId, setLoadBoardId] = useState('')
-    const [activeDragType, setActiveDragType] = useState(null) // 'card' | 'column' | null
+    const [dragStartInfo, setDragStartInfo] = useState({}) // 'card' | 'column' | null
 
     // CREATE / LOAD
     const createBoard = async () => {
@@ -73,7 +72,9 @@ export default function Board() {
     }
 
     return (
-        <div className="vh-100 vw-100 d-flex flex-column" style={{background: '#111', color: '#fff'}}>
+        <div className="vh-100 vw-100 d-flex flex-column"
+             style={{background: '#111', color: '#fff'}}
+             onDragOver={(e) => e.preventDefault()}> {/* Trick to prevent ghosting bug when dropping items outside of column/card*/}
             {/* Top Bar */}
             <div className="p-3">
                 <button className="btn btn-primary me-3" onClick={createBoard}>Create New Board</button>
@@ -137,10 +138,9 @@ export default function Board() {
                                 removeColumn={removeColumn}
                                 moveColumn={moveColumn}
                                 fetchBoard={fetchBoard}
-                                API_BASE_URL={API_BASE_URL}
-
-                                dragType={activeDragType}
-                                setDragType={setActiveDragType}
+                                dragStartInfo={dragStartInfo}
+                                setDragStartInfo={setDragStartInfo}
+                                isLastColumn={boardData.columns.length - 1 === colIndex}
                             />
                         ))}
 

@@ -11,15 +11,15 @@ export default function Column({
     removeColumn,
     moveColumn,
     fetchBoard,
-    API_BASE_URL,
-    dragType,
-    setDragType
+    dragStartInfo,
+    setDragStartInfo,
+    isLastColumn
 }) {
     // For remove-button
     const [isColumnHovered, setIsColumnHovered] = useState(false)
     const [isAnyCardHovered, setIsAnyCardHovered] = useState(false)
 
-    // 'left' or 'right' or null
+    // 'before' or 'after' or null
     const [dropPosition, setDropPosition] = useState(null)
     const [isEditing, setIsEditing] = useState(false);
 
@@ -54,28 +54,30 @@ export default function Column({
             return
         }
 
-        setDragType('column')
-        e.dataTransfer.setData('payload', JSON.stringify({
-            type: 'column',
-            columnId: col.id
-        }))
+        // timeout to give the browser time to generate the drag ghost
+        setTimeout(() => {
+            setDragStartInfo({type: 'column', id: col.id, index: colIndex})
+        }, 0)
+
     }
 
     const handleColumnDragEnd = () => {
-        setDragType(null)
+        setDragStartInfo({})
     }
 
     const handleColumnDragOver = (e) => {
         e.preventDefault()
-        if (dragType !== 'column') return
+        if (dragStartInfo.type !== 'column') return
 
         const rect = e.currentTarget.getBoundingClientRect()
         const x = e.clientX - rect.left
-        if (x < rect.width / 2) {
-            setDropPosition('left')
-        } else {
-            setDropPosition('right')
-        }
+        const isBefore = x < rect.width / 2;
+
+        // Prevent shift animation when the column being dragged wouldn't change positions
+        const noMovementIndex = isBefore ? colIndex - 1 : colIndex + 1;
+        if (dragStartInfo.index === noMovementIndex) return;
+
+        setDropPosition(isBefore ? 'before' : 'after');
     }
 
     const handleColumnDragLeave = () => {
@@ -84,17 +86,12 @@ export default function Column({
 
     const handleColumnDrop = (e) => {
         e.preventDefault()
-        if (dragType !== 'column') return
+        if (dragStartInfo.type !== 'column') return
 
-        const dataStr = e.dataTransfer.getData('payload')
-        if (!dataStr) return
-        const data = JSON.parse(dataStr)
-        if (data.type !== 'column') return
-
-        const newIndex = dropPosition === 'left' ? colIndex : colIndex + 1
-        moveColumn(data.columnId, newIndex)
+        const newIndex = dropPosition === 'before' ? colIndex : colIndex + 1
+        moveColumn(dragStartInfo.id, newIndex)
         setDropPosition(null)
-        setDragType(null)
+        setDragStartInfo({})
     }
 
     // If column is empty => special drop zone for cards
@@ -102,23 +99,20 @@ export default function Column({
 
     const handleEmptyColumnDrop = async (e) => {
         e.preventDefault()
-        if (dragType !== 'card') return
+        if (dragStartInfo.type !== 'card') return
 
-        const dataStr = e.dataTransfer.getData('payload')
-        if (!dataStr) return
-        const data = JSON.parse(dataStr)
-        if (data.type !== 'card') return
-
-        await cardService.move(boardId, data.fromColumnId, col.id, data.cardId, 0)
+        await cardService.move(boardId, dragStartInfo.fromColumnId, col.id, dragStartInfo.id, 0)
         await fetchBoard(boardId)
-        setDragType(null)
+        setDragStartInfo({})
     }
+
+    let isBeingDragged = col.id === dragStartInfo.id;
 
     // SHIFT the "visual" column, not the bounding container
     let translateOffset = '0px'
-    if (dropPosition === 'left') {
+    if (dropPosition === 'before') {
         translateOffset = '10px' // visually shift right
-    } else if (dropPosition === 'right') {
+    } else if (dropPosition === 'after') {
         translateOffset = '-10px' // visually shift left
     }
 
@@ -135,10 +129,12 @@ export default function Column({
                 width: '270px',    // bounding width (slightly bigger to allow visual margin inside)
                 minHeight: '200px',
                 margin: 0,         // no margin, so bounding boxes are flush
-                padding: 0,
+                paddingRight: isLastColumn ? '5px' : "0",
                 position: 'relative',
                 backgroundColor: "transparent",
+                visibility: isBeingDragged ? 'hidden' : 'visible',
                 zIndex: 1 // this prevents the dragged item  from rendering a background color
+
             }}
             draggable
             onDragStart={handleColumnDragStart}
@@ -168,7 +164,7 @@ export default function Column({
                         width: '22px',
                         height: '22px',
                         paddingBottom: '8px',
-                        visibility: (isColumnHovered && !isAnyCardHovered) ? 'visible' : 'hidden',
+                        visibility: (isColumnHovered && !isAnyCardHovered && !isBeingDragged) ? 'visible' : 'hidden',
                         backgroundColor: 'transparent',
                         border: 'none',
                         color: 'rgb(187,187,187)',
@@ -192,7 +188,7 @@ export default function Column({
                 </div>
 
 
-                {(!col.cards || col.cards.length === 0) && dragType === 'card' && (
+                {(!col.cards || col.cards.length === 0) && dragStartInfo.type === 'card' && (
                     <div
                         style={{
                             minHeight: '50px',
@@ -220,10 +216,10 @@ export default function Column({
                         boardId={boardId}
                         colId={col.id}
                         fetchBoard={fetchBoard}
-                        API_BASE_URL={API_BASE_URL}
                         onHoverChange={handleCardHoverChange}
-                        dragType={dragType}
-                        setDragType={setDragType}
+                        dragStartInfo={dragStartInfo}
+                        setDragStartInfo={setDragStartInfo}
+                        parentColumnIsBeingDragged={isBeingDragged}
                     />
                 ))}
 
