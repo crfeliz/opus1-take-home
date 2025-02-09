@@ -34,3 +34,7 @@ body {
 .edit-content:hover {
     overflow-y: auto !important;
 }
+
+.editing-text {
+    resize: none;
+}

@@ -17,6 +17,8 @@ export default function Card({
     const [isHovered, setIsHovered] = useState(false)
     const [dropPosition, setDropPosition] = useState(null) // 'above' or 'below'
     const [currentDragTargetId, setCurrentDragTargetId] = useState(null)
+    const [isEditing, setIsEditing] = useState(false);
+
 
     const handleMouseEnter = () => {
         setIsHovered(true)
@@ -52,6 +54,11 @@ export default function Card({
     // DRAG & DROP
     const handleDragStart = (e) => {
         e.stopPropagation()
+        if (isEditing) {
+            e.preventDefault()
+            return
+        }
+
         setDragType('card')
         e.dataTransfer.setData('payload', JSON.stringify({
             type: 'card',
@@ -168,6 +175,8 @@ export default function Card({
                     <EditText
                         defaultValue={card.title || 'Untitled'}
                         onSave={(data) => updateCardTitle(data.value)}
+                        onEditMode={() => setIsEditing(true)}
+                        onBlur={() => setIsEditing(false)}
                         className="edit-text text-info h5"
                         inputClassName="editing-text"
                         style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -179,6 +188,8 @@ export default function Card({
                     <EditTextarea
                         defaultValue={card.content || 'No content'}
                         onSave={(data) => updateCardContent(data.value)}
+                        onEditMode={() => setIsEditing(true)}
+                        onBlur={() => setIsEditing(false)}
                         className="edit-text edit-content"
                         inputClassName="editing-text"
                         rows={2}

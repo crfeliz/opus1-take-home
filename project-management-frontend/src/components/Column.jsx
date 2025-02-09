@@ -21,6 +21,7 @@ export default function Column({
 
     // 'left' or 'right' or null
     const [dropPosition, setDropPosition] = useState(null)
+    const [isEditing, setIsEditing] = useState(false);
 
     const handleColumnMouseEnter = () => {
         setIsColumnHovered(true)
@@ -48,6 +49,11 @@ export default function Column({
 
     // DRAG & DROP for columns
     const handleColumnDragStart = (e) => {
+        if (isEditing) {
+            e.preventDefault()
+            return
+        }
+
         setDragType('column')
         e.dataTransfer.setData('payload', JSON.stringify({
             type: 'column',
@@ -177,6 +183,8 @@ export default function Column({
                     <EditText
                         defaultValue={col.title || 'Untitled'}
                         onSave={(data) => updateColumnTitle(data.value)}
+                        onEditMode={() => setIsEditing(true)}
+                        onBlur={() => setIsEditing(false)}
                         className="edit-text text-info h3"
                         inputClassName="editing-text"
                         style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
