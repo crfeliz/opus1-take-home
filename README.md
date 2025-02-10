@@ -18,9 +18,8 @@ python3 app.py
 
 ### 🎨 Frontend Setup
 
-From the **`project-management-frontend`** directory, run:
-
 ```sh
+cd project-management-frontend
 npm install
 npm run dev
 ```
