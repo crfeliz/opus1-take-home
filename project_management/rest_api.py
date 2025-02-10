@@ -37,7 +37,8 @@ def edit_board_title():
 @app.route('/board_as_dict', methods=['GET'])
 def board_as_dict():
     board_id = request.args.get('board_id')
-    board = app_instance.board_as_dict(board_id)
+    version = request.args.get('version', None)
+    board = app_instance.board_as_dict(board_id, version)
     return jsonify(board)
 
 

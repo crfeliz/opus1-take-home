@@ -22,9 +22,9 @@ export default function Board() {
         setBoardId(loadBoardId.trim())
     }
 
-    const fetchBoard = async (id) => {
+    const fetchBoard = async (id, version = null) => {
         if (!id) return
-        const data = await boardService.get(id)
+        const data = await boardService.get(id, version)
         setBoardData(data.board)
     }
 
@@ -61,6 +61,16 @@ export default function Board() {
         await fetchBoard(boardId)
     }
 
+    const undo = async () => {
+        if (!boardData) return
+        await fetchBoard(boardId, boardData.version - 1)
+    }
+
+    const redo = async () => {
+        if (!boardData) return
+        await fetchBoard(boardId, boardData.version + 1)
+    }
+
     // Copy board ID
     const copyBoardIdToClipboard = () => {
         if (!boardId) return
@@ -84,17 +94,20 @@ export default function Board() {
                     value={loadBoardId}
                     onChange={(e) => setLoadBoardId(e.target.value)}
                 />
-                <button className="btn btn-secondary" onClick={loadExistingBoard}>Load Board</button>
+                <button className="btn btn-secondary me-2" onClick={loadExistingBoard}>Load Board</button>
+                <div className="history-controls w-auto d-inline-block me-2">
+                    <button className="btn btn-secondary w-auto d-inline-block me-2" onClick={undo}>&lt;</button>
+                    <button className="btn btn-secondary w-auto d-inline-block me-2" onClick={redo}>&gt;</button>
+                </div>
 
                 {boardId && (
                     <div className="mt-2">
                         <strong>Current Board ID: </strong>
                         <span
                             style={{textDecoration: 'underline', cursor: 'pointer'}}
-                            onClick={copyBoardIdToClipboard}
-                        >
-              {boardId}
-            </span>
+                            onClick={copyBoardIdToClipboard}>
+                          {boardId}
+                        </span>
                     </div>
                 )}
 

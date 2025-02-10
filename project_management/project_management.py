@@ -1,6 +1,7 @@
 import os
 import uuid
-from eventsourcing.application import Application
+from functools import wraps
+from eventsourcing.application import Application, Repository
 from eventsourcing.domain import Aggregate, event
 
 
@@ -24,7 +25,6 @@ def debug_print_ids(collection):
     print(list(map(lambda v: v.id, collection)))
     print("----------")
 
-
 def with_item_moved_by_id(collection, item_id, new_index):
     item_index = next((i for i, item in enumerate(collection) if item.id == item_id), None)
     debug_print_ids(collection)
@@ -35,7 +35,6 @@ def with_item_moved_by_id(collection, item_id, new_index):
     collection[item_index] = None
     collection.insert(new_index, item)
     return list(filter(None, collection))
-
 
 class Card:
     def __init__(self, card_id):
@@ -206,9 +205,9 @@ class ProjectManagementApp(Application):
         board.move_card(to_column_uuid, card_uuid, new_index)
         self.save(board)
 
-    def board_as_dict(self, board_id: str) -> dict:
+    def board_as_dict(self, board_id: str, version: str = None) -> dict:
         board_uuid = uuid.UUID(board_id)
-        board = self.repository.get(board_uuid)
+        board = self.repository.get(board_uuid, version=version)
 
         return {
             "board": {
@@ -229,6 +228,7 @@ class ProjectManagementApp(Application):
                     }
                     for column in board.columns
                 ],
+                "version": board.version
             }
         }
 

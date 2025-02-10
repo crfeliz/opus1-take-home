@@ -10,8 +10,13 @@ export const boardService = {
     method: 'POST'
   }).then(handleResponse),
 
-  get: (id) => fetch(`${API_BASE_URL}/board_as_dict?board_id=${id}`)
-    .then(handleResponse),
+  get: (id, version=null) => {
+    let url = `${API_BASE_URL}/board_as_dict?board_id=${id}`
+    if (version) {
+      url += `&version=${version}`
+    }
+    return fetch(url).then(handleResponse)
+  },
 
   updateTitle: (id, title) => fetch(`${API_BASE_URL}/edit_board_title`, {
     method: 'PUT',
