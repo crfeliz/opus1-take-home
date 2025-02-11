@@ -38,24 +38,23 @@ def edit_board_title():
 
 @app.route('/board_as_dict', methods=['GET'])
 def board_as_dict():
+    print("RENDER START")
     board_id = UUID(request.args.get('board_id'))
     try:
         board = app_instance.board_as_dict(board_id)
+        print("RENDER END")
         return jsonify(board)
     except Exception as e:
-        print("ERRRRR")
         print(e)
         return jsonify({"message": "Board not found"})
+
 
 
 # ---------------------- COLUMN ----------------------
 @app.route('/add_column_to_board', methods=['POST'])
 def add_column_to_board():
-    print(1)
     data = request.get_json()
-    print(2)
     board_id = UUID(data.get('board_id'))
-    print(3)
     try:
         print(app_instance)
         print(app_instance.add_column)
@@ -150,9 +149,11 @@ def edit_card_content():
 
 @app.route('/undo', methods=['POST'])
 def undo():
+    print("UNDO_START")
     data = request.get_json()
     board_id = UUID(data.get('board_id'))
     app_instance.undo(board_id)
+    print("UNDO_END")
     return jsonify({"message": "Board undo"})
 
 @app.route('/redo', methods=['POST'])

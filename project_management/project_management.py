@@ -32,7 +32,6 @@ def debug_print_ids(collection):
 
 def with_item_moved_by_id(collection, item_id, new_index):
     item_index = next((i for i, item in enumerate(collection) if item.id == item_id), None)
-    debug_print_ids(collection)
     if item_index is None:
         raise ValueError(f"Item {item_id} not found in {collection}")
 
@@ -89,60 +88,51 @@ class ColumnTranscoding(Transcoding):
         column.cards = data.get("cards", [])
         return column
 
+class UndoRedoStrategy:
 
-class BoardUndoTracker(Aggregate):
-    MIN_CURSOR = 2
+    def __init__(self, min_version):
+        self._min_version = min_version
+        self._version_cursor = min_version
+        self._undo_commits = bidict()
 
-    @event("UNDO_TRACKER_CREATED")
-    def __init__(self, board_id):
-        self.board_id = board_id
-        self.cursor = self.MIN_CURSOR
-        self.undo_commits = bidict()
+    def get_version_cursor(self):
+        return self._version_cursor
 
-    @event("SET_CURSOR")
-    def set_cursor(self, version):
-        self.cursor = version
+    def increment_version_cursor(self):
+        self._version_cursor += 1
 
-    @event("UNDO")
     def undo(self):
-        print("cursor_before_op", self.cursor)
-        print("undo_commits", self.undo_commits)
-        self.cursor = max(self.MIN_CURSOR, self.cursor - 1)
-        reference_version = self.undo_commits.get(self.cursor)
-        if reference_version is not None and reference_version < self.cursor:
-            self.cursor = reference_version
-        print("cursor_after_op", self.cursor)
+        print("active_version_before", self.get_version_cursor())
+        print("undo_commits", self._undo_commits)
+        self._version_cursor = max(self._min_version, self.get_version_cursor() - 1)
+        reference_version = self._undo_commits.get(self.get_version_cursor())
+        if reference_version is not None and reference_version < self.get_version_cursor():
+            self._version_cursor = reference_version
+        print("active_version_after", self.get_version_cursor())
 
-    @event("REDO")
     def redo(self, maximum_version):
-        print("cursor_before_op", self.cursor)
-        print("undo_commits", self.undo_commits)
+        print("active_version_before", self.get_version_cursor())
+        print("undo_commits", self._undo_commits)
+        commit_version = self._undo_commits.get(self.get_version_cursor())
+        if commit_version is not None and commit_version > self.get_version_cursor():
+            self._version_cursor = commit_version
+        self._version_cursor = min(maximum_version, self.get_version_cursor() + 1)
+        print("active_version_after", self.get_version_cursor())
 
-        commit_version = self.undo_commits.get(self.cursor)
-        if commit_version is not None and commit_version > self.cursor:
-            self.cursor = commit_version
-
-        self.cursor = min(maximum_version, self.cursor + 1)
-
-        print("cursor_after_op", self.cursor)
-
-
-    @event("COMMIT")
     def commit(self, commit_version, reference_version):
-        reference_version = min(self.undo_commits.get(reference_version, reference_version), reference_version)
-        commit_version = max(self.undo_commits.get(commit_version, commit_version), commit_version)
-        self.undo_commits.forceput(commit_version, reference_version)
-        self.undo_commits.forceput(reference_version, commit_version)
-        self.undo_commits = self.clean_bidict_ranges(self.undo_commits)
-        self.cursor = commit_version
-        print("undo_commits", self.undo_commits)
+        reference_version = min(self._undo_commits.get(reference_version, reference_version), reference_version)
+        commit_version = max(self._undo_commits.get(commit_version, commit_version), commit_version)
+        self._undo_commits.forceput(commit_version, reference_version)
+        self._undo_commits.forceput(reference_version, commit_version)
+        self.clean_undo_commits()
+        self._version_cursor = commit_version
+        print("undo_commits", self._undo_commits)
 
-    @staticmethod
-    def clean_bidict_ranges(b: bidict):
-        pairs = {(min(k, v), max(k, v)) for k, v in b.items()}
+    def clean_undo_commits(self):
+        pairs = {(min(k, v), max(k, v)) for k, v in self._undo_commits.items()}
 
         # 2. Sort pairs by left endpoint ascending; if equal, by right endpoint descending.
-        sorted_pairs = sorted(pairs, key=lambda p: (p[0], -p[1]))
+        sorted_pairs = sorted(pairs, key=lambda sp: (sp[0], -sp[1]))
 
         # 3. Keep only pairs that are not completely contained within a previously kept (larger) range.
         kept = []
@@ -156,7 +146,33 @@ class BoardUndoTracker(Aggregate):
         for l, r in kept:
             nb[l] = r
             nb[r] = l
-        return bidict(nb)
+        self._undo_commits = bidict(nb)
+
+class BoardUndoTracker(Aggregate):
+
+    @event("UNDO_TRACKER_CREATED")
+    def __init__(self, board_id):
+        self.board_id = board_id
+        self.strategy = UndoRedoStrategy(min_version=2)
+
+    @event("INCR_VERSION_CURSOR")
+    def increment_version_cursor(self):
+        self.strategy.increment_version_cursor()
+
+    @event("UNDO")
+    def undo(self):
+        self.strategy.undo()
+
+    @event("REDO")
+    def redo(self, maximum_version):
+        self.strategy.redo(maximum_version)
+
+    @event("COMMIT")
+    def commit(self, commit_version, reference_version):
+        self.strategy.commit(commit_version, reference_version)
+
+    def get_active_version(self):
+        return self.strategy.get_version_cursor()
 
 
 class Board(Aggregate):
@@ -177,7 +193,6 @@ class Board(Aggregate):
 
     @event("COLUMN_ADDED")
     def add_column(self, column_id):
-        print("hmmmm")
         column = Column(column_id)
         self.columns.append(column)
 
@@ -244,25 +259,19 @@ class UndoStateHandler:
         self.board_id_to_undo_tracker_id = {}
 
     def commit_undo_state(self, board: Board):
-        print("commit_undo_state 1")
         undo_tracker = self._get_undo_tracker(board.id)
-        cursor = undo_tracker.cursor
-        print("commit_undo_state 2")
-        print("cursor", cursor)
-        print("lv", board.version)
-        if cursor != board.version:
-            undone_board: Board = self.app.repository.get(board.id, version=cursor)
+        active_version = undo_tracker.get_active_version()
+        if active_version != board.version:
+            undone_board: Board = self.app.repository.get(board.id, version=active_version)
             board.commit_undo_state(undone_board.title, undone_board.columns)
-            print("saving version: ", board.version)
             self.app.save(board)
             undo_tracker.commit(board.version, undone_board.version)
-            print("commit_undo_state 7")
             self.app.save(undo_tracker)
-            print("commit_undo_state 8")
 
-    def increment_undo_tracker(self, board_id: UUID):
+
+    def increment_version_cursor(self, board_id: UUID):
         undo_tracker = self._get_undo_tracker(board_id)
-        undo_tracker.set_cursor(undo_tracker.cursor + 1)
+        undo_tracker.increment_version_cursor()
         self.app.save(undo_tracker)
 
 
@@ -277,18 +286,15 @@ class UndoStateHandler:
         undo_tracker.redo(maximum_version=latest_version)
         self.app.save(undo_tracker)
 
-    def calculate_active_version(self, board_id: UUID):
+    def get_active_version(self, board_id: UUID):
         undo_tracker: BoardUndoTracker = self._get_undo_tracker(board_id)
-        return undo_tracker.cursor
+        return undo_tracker.get_active_version()
 
-    def _get_undo_tracker(self, board_id):
+    def _get_undo_tracker(self, board_id) -> BoardUndoTracker:
         if board_id not in self.board_id_to_undo_tracker_id:
             board = self.app.repository.get(board_id)
-            print("undo tracker id", board.undo_tracker_id)
             self.board_id_to_undo_tracker_id[board_id] = board.undo_tracker_id
-
         undo_tracker_uuid = self.board_id_to_undo_tracker_id[board_id]
-        print("----")
         return self.app.repository.get(undo_tracker_uuid)
 
     @staticmethod
@@ -329,7 +335,6 @@ class ProjectManagementApp(Application):
         board.set_undo_tracker(undo_tracker.id)
         self.save(board)
         self.save(undo_tracker)
-        print("Saved board and undo tracker")
         return board.id
 
     def edit_board_title(self, board_id: UUID, title: str):
@@ -337,42 +342,36 @@ class ProjectManagementApp(Application):
         self.undo_state_handler.commit_undo_state(board)
         board.edit_board_title(title)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def edit_column_title(self, board_id: UUID, column_id: UUID, title: str):
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
         board.edit_column_title(column_id, title)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def edit_card_title(self, board_id: UUID, column_id: UUID, card_id: UUID, title: str):
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
         board.edit_card_title(column_id, card_id, title)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def edit_card_content(self, board_id: UUID, column_id: UUID, card_id: UUID, content: str):
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
         board.edit_card_content(column_id, card_id, content)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def add_column(self, board_id: UUID) -> UUID:
-        print("adding")
-        print("adding 2")
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
-        print("adding 3")
         column_id = uuid4()
-        print("adding 4")
         board.add_column(column_id)
-        print("adding 5")
         self.save(board)
-        print("adding 6")
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
         return column_id
 
     def remove_column(self, board_id: UUID, column_id: UUID):
@@ -380,28 +379,23 @@ class ProjectManagementApp(Application):
         self.undo_state_handler.commit_undo_state(board)
         board.remove_column(column_id)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
+
 
     def move_column(self, board_id: UUID, column_id: UUID, new_index: int):
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
         board.move_column(column_id, new_index)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def add_card(self, board_id: UUID, column_id: UUID) -> UUID:
-        print("adding 1")
-        print("adding 2")
         board = self.repository.get(board_id)
         self.undo_state_handler.commit_undo_state(board)
-        print("adding 3")
         card_id = uuid4()
-        print("adding 4")
         board.add_card(column_id, card_id)
-        print("adding 5")
         self.save(board)
-        print("adding 6")
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
         return card_id
 
     def remove_card(self, board_id: UUID, column_id: UUID, card_id: UUID):
@@ -409,7 +403,7 @@ class ProjectManagementApp(Application):
         self.undo_state_handler.commit_undo_state(board)
         board.remove_card(column_id, card_id)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def move_card(self, board_id: UUID, from_column_id: UUID, to_column_id: UUID, card_id: UUID, new_index: int):
 
@@ -420,12 +414,13 @@ class ProjectManagementApp(Application):
             card = board.get_card(from_column_id, card_id)
             board.remove_card(from_column_id, card_id)
             board.add_card(to_column_id, card.id, card.title, card.content)
-            self.undo_state_handler.increment_undo_tracker(board_id)
-            self.undo_state_handler.increment_undo_tracker(board_id)
+            self.save(board)
+            self.undo_state_handler.increment_version_cursor(board_id)
+            self.undo_state_handler.increment_version_cursor(board_id)
 
         board.move_card(to_column_id, card_id, new_index)
         self.save(board)
-        self.undo_state_handler.increment_undo_tracker(board_id)
+        self.undo_state_handler.increment_version_cursor(board_id)
 
     def undo(self, board_id: UUID):
         self.undo_state_handler.undo(board_id)
@@ -434,7 +429,7 @@ class ProjectManagementApp(Application):
         self.undo_state_handler.redo(board_id)
 
     def board_as_dict(self, board_id: UUID) -> dict:
-        active_version = self.undo_state_handler.calculate_active_version(board_id)
+        active_version = self.undo_state_handler.get_active_version(board_id)
         print("rendering version: ", active_version)
         board = self.repository.get(board_id, version=active_version)
 
