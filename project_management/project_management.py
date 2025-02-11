@@ -1,8 +1,13 @@
 import os
-import uuid
-from functools import wraps
-from eventsourcing.application import Application, Repository
+from uuid import uuid4, UUID
+import sqlite3
+from typing import Any
+
+from bidict import bidict
+from eventsourcing.application import Application
 from eventsourcing.domain import Aggregate, event
+from eventsourcing.persistence import Transcoding, Transcoder
+from typing_extensions import override
 
 
 def find_item_by_id(collection, item_id):
@@ -36,18 +41,122 @@ def with_item_moved_by_id(collection, item_id, new_index):
     collection.insert(new_index, item)
     return list(filter(None, collection))
 
+
 class Card:
+
     def __init__(self, card_id):
         self.id = card_id
         self.title = ""
         self.content = ""
 
+class CardTranscoding(Transcoding):
+    type = Card
+    name = "card_dict"
+    def encode(self, obj: Any) -> Any:
+        return {
+            "id": obj.id,
+            "title": obj.title,
+            "content": obj.content
+        }
+
+    def decode(self, data: Any) -> Any:
+        # Create a Card from a dict.
+        card = Card(data["id"])
+        card.title = data.get("title", "")
+        card.content = data.get("content", "")
+        return card
 
 class Column:
+
     def __init__(self, column_id):
         self.id = column_id
         self.title = ""
         self.cards = []
+
+class ColumnTranscoding(Transcoding):
+    type = Column
+    name = "column_dict"
+    def encode(self, obj: Any) -> Any:
+        return {
+            "id": obj.id,
+            "title": obj.title,
+            "cards": obj.cards
+        }
+
+    def decode(self, data: Any) -> Any:
+        column = Column(data["id"])
+        column.title = data.get("title", "")
+        column.cards = data.get("cards", [])
+        return column
+
+
+class BoardUndoTracker(Aggregate):
+    MIN_CURSOR = 2
+
+    @event("UNDO_TRACKER_CREATED")
+    def __init__(self, board_id):
+        self.board_id = board_id
+        self.cursor = self.MIN_CURSOR
+        self.undo_commits = bidict()
+
+    @event("SET_CURSOR")
+    def set_cursor(self, version):
+        self.cursor = version
+
+    @event("UNDO")
+    def undo(self):
+        print("cursor_before_op", self.cursor)
+        print("undo_commits", self.undo_commits)
+        self.cursor = max(self.MIN_CURSOR, self.cursor - 1)
+        reference_version = self.undo_commits.get(self.cursor)
+        if reference_version is not None and reference_version < self.cursor:
+            self.cursor = reference_version
+        print("cursor_after_op", self.cursor)
+
+    @event("REDO")
+    def redo(self, maximum_version):
+        print("cursor_before_op", self.cursor)
+        print("undo_commits", self.undo_commits)
+
+        commit_version = self.undo_commits.get(self.cursor)
+        if commit_version is not None and commit_version > self.cursor:
+            self.cursor = commit_version
+
+        self.cursor = min(maximum_version, self.cursor + 1)
+
+        print("cursor_after_op", self.cursor)
+
+
+    @event("COMMIT")
+    def commit(self, commit_version, reference_version):
+        reference_version = min(self.undo_commits.get(reference_version, reference_version), reference_version)
+        commit_version = max(self.undo_commits.get(commit_version, commit_version), commit_version)
+        self.undo_commits.forceput(commit_version, reference_version)
+        self.undo_commits.forceput(reference_version, commit_version)
+        self.undo_commits = self.clean_bidict_ranges(self.undo_commits)
+        self.cursor = commit_version
+        print("undo_commits", self.undo_commits)
+
+    @staticmethod
+    def clean_bidict_ranges(b: bidict):
+        pairs = {(min(k, v), max(k, v)) for k, v in b.items()}
+
+        # 2. Sort pairs by left endpoint ascending; if equal, by right endpoint descending.
+        sorted_pairs = sorted(pairs, key=lambda p: (p[0], -p[1]))
+
+        # 3. Keep only pairs that are not completely contained within a previously kept (larger) range.
+        kept = []
+        for p in sorted_pairs:
+            if any(q[0] <= p[0] and p[1] <= q[1] for q in kept):
+                continue
+            kept.append(p)
+
+        # 4. Create a new bidict of the same type as bid and add the kept pairs in both directions.
+        nb = {}
+        for l, r in kept:
+            nb[l] = r
+            nb[r] = l
+        return bidict(nb)
 
 
 class Board(Aggregate):
@@ -55,6 +164,12 @@ class Board(Aggregate):
     def __init__(self):
         self.title = ""
         self.columns = []
+        self.undo_jump_offset = 0
+        self.undo_tracker_id = None
+
+    @event("UNDO_TRACKER_LINKED")
+    def set_undo_tracker(self, undo_tracker_id):
+        self.undo_tracker_id = undo_tracker_id
 
     @event("BOARD_TITLE_EDITED")
     def edit_board_title(self, title):
@@ -62,6 +177,7 @@ class Board(Aggregate):
 
     @event("COLUMN_ADDED")
     def add_column(self, column_id):
+        print("hmmmm")
         column = Column(column_id)
         self.columns.append(column)
 
@@ -95,6 +211,7 @@ class Board(Aggregate):
             card.title = title
         if content is not None:
             card.content = content
+
         column = find_item_by_id(self.columns, column_id)
         column.cards.append(card)
 
@@ -115,99 +232,211 @@ class Board(Aggregate):
             raise ValueError(f"Card {card_id} not found in column {column_id}")
         return card
 
+    @event("COMMIT_UNDO_STATE")
+    def commit_undo_state(self, title, columns):
+        self.title = title
+        self.columns = columns
+
+
+class UndoStateHandler:
+    def __init__(self, app):
+        self.app: Application = app
+        self.board_id_to_undo_tracker_id = {}
+
+    def commit_undo_state(self, board: Board):
+        print("commit_undo_state 1")
+        undo_tracker = self._get_undo_tracker(board.id)
+        cursor = undo_tracker.cursor
+        print("commit_undo_state 2")
+        print("cursor", cursor)
+        print("lv", board.version)
+        if cursor != board.version:
+            undone_board: Board = self.app.repository.get(board.id, version=cursor)
+            board.commit_undo_state(undone_board.title, undone_board.columns)
+            print("saving version: ", board.version)
+            self.app.save(board)
+            undo_tracker.commit(board.version, undone_board.version)
+            print("commit_undo_state 7")
+            self.app.save(undo_tracker)
+            print("commit_undo_state 8")
+
+    def increment_undo_tracker(self, board_id: UUID):
+        undo_tracker = self._get_undo_tracker(board_id)
+        undo_tracker.set_cursor(undo_tracker.cursor + 1)
+        self.app.save(undo_tracker)
+
+
+    def undo(self, board_id: UUID):
+        undo_tracker = self._get_undo_tracker(board_id)
+        undo_tracker.undo()
+        self.app.save(undo_tracker)
+
+    def redo(self, board_id: UUID):
+        latest_version = self._get_latest_board_version(board_id)
+        undo_tracker = self._get_undo_tracker(board_id)
+        undo_tracker.redo(maximum_version=latest_version)
+        self.app.save(undo_tracker)
+
+    def calculate_active_version(self, board_id: UUID):
+        undo_tracker: BoardUndoTracker = self._get_undo_tracker(board_id)
+        return undo_tracker.cursor
+
+    def _get_undo_tracker(self, board_id):
+        if board_id not in self.board_id_to_undo_tracker_id:
+            board = self.app.repository.get(board_id)
+            print("undo tracker id", board.undo_tracker_id)
+            self.board_id_to_undo_tracker_id[board_id] = board.undo_tracker_id
+
+        undo_tracker_uuid = self.board_id_to_undo_tracker_id[board_id]
+        print("----")
+        return self.app.repository.get(undo_tracker_uuid)
+
+    @staticmethod
+    def _get_latest_board_version(board_id: UUID):
+        board_uuid = board_id.hex
+        connection = sqlite3.connect("events.db")
+        try:
+            cursor = connection.cursor()
+            query = """
+                SELECT MAX(originator_version)
+                FROM stored_events
+                WHERE originator_id = ?
+            """
+            cursor.execute(query, (board_uuid,))
+            row = cursor.fetchone()
+        finally:
+            connection.close()
+
+        return row[0] if row[0] is not None else 0
+
 
 class ProjectManagementApp(Application):
 
-    def create_board(self) -> str:
-        board = Board()
-        self.save(board)
-        return str(board.id)
+    def __init__(self):
+        super().__init__()
+        self.undo_state_handler = UndoStateHandler(self)
 
-    def edit_board_title(self, board_id: str, title: str):
-        board_uuid = uuid.UUID(board_id)
-        board = self.repository.get(board_uuid)
+    @override
+    def register_transcodings(self, transcoder: Transcoder):
+        super().register_transcodings(transcoder)
+        transcoder.register(CardTranscoding())
+        transcoder.register(ColumnTranscoding())
+
+
+    def create_board(self) -> UUID:
+        board = Board()
+        undo_tracker = BoardUndoTracker(board.id)
+        board.set_undo_tracker(undo_tracker.id)
+        self.save(board)
+        self.save(undo_tracker)
+        print("Saved board and undo tracker")
+        return board.id
+
+    def edit_board_title(self, board_id: UUID, title: str):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
         board.edit_board_title(title)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def edit_column_title(self, board_id: str, column_id: str, title: str):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        board = self.repository.get(board_uuid)
-        board.edit_column_title(column_uuid, title)
+    def edit_column_title(self, board_id: UUID, column_id: UUID, title: str):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.edit_column_title(column_id, title)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def edit_card_title(self, board_id, column_id: str, card_id: str, title: str):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        card_uuid = uuid.UUID(card_id)
-        board = self.repository.get(board_uuid)
-        board.edit_card_title(column_uuid, card_uuid, title)
+    def edit_card_title(self, board_id: UUID, column_id: UUID, card_id: UUID, title: str):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.edit_card_title(column_id, card_id, title)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def edit_card_content(self, board_id, column_id: str, card_id: str, content: str):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        card_uuid = uuid.UUID(card_id)
-        board = self.repository.get(board_uuid)
-        board.edit_card_content(column_uuid, card_uuid, content)
+    def edit_card_content(self, board_id: UUID, column_id: UUID, card_id: UUID, content: str):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.edit_card_content(column_id, card_id, content)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def add_column(self, board_id: str) -> str:
-        board_uuid = uuid.UUID(board_id)
-        board = self.repository.get(board_uuid)
-        column_uuid = uuid.uuid4()
-        board.add_column(column_uuid)
+    def add_column(self, board_id: UUID) -> UUID:
+        print("adding")
+        print("adding 2")
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        print("adding 3")
+        column_id = uuid4()
+        print("adding 4")
+        board.add_column(column_id)
+        print("adding 5")
         self.save(board)
-        return str(column_uuid)
+        print("adding 6")
+        self.undo_state_handler.increment_undo_tracker(board_id)
+        return column_id
 
-    def remove_column(self, board_id: str, column_id: str):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        board = self.repository.get(board_uuid)
-        board.remove_column(column_uuid)
+    def remove_column(self, board_id: UUID, column_id: UUID):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.remove_column(column_id)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def move_column(self, board_id: str, column_id: str, new_index: int):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        board = self.repository.get(board_uuid)
-        board.move_column(column_uuid, new_index)
+    def move_column(self, board_id: UUID, column_id: UUID, new_index: int):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.move_column(column_id, new_index)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def add_card(self, board_id, column_id: str) -> str:
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        board = self.repository.get(board_uuid)
-        card_uuid = uuid.uuid4()
-        board.add_card(column_uuid, card_uuid)
+    def add_card(self, board_id: UUID, column_id: UUID) -> UUID:
+        print("adding 1")
+        print("adding 2")
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        print("adding 3")
+        card_id = uuid4()
+        print("adding 4")
+        board.add_card(column_id, card_id)
+        print("adding 5")
         self.save(board)
-        return str(card_uuid)
+        print("adding 6")
+        self.undo_state_handler.increment_undo_tracker(board_id)
+        return card_id
 
-    def remove_card(self, board_id: str, column_id: str, card_id: str):
-        board_uuid = uuid.UUID(board_id)
-        column_uuid = uuid.UUID(column_id)
-        card_uuid = uuid.UUID(card_id)
-        board = self.repository.get(board_uuid)
-        board.remove_card(column_uuid, card_uuid)
+    def remove_card(self, board_id: UUID, column_id: UUID, card_id: UUID):
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+        board.remove_card(column_id, card_id)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def move_card(self, board_id: str, from_column_id: str, to_column_id: str, card_id: str, new_index: int):
-        board_uuid = uuid.UUID(board_id)
-        from_column_uuid = uuid.UUID(from_column_id)
-        to_column_uuid = uuid.UUID(to_column_id)
-        card_uuid = uuid.UUID(card_id)
-        board = self.repository.get(board_uuid)
+    def move_card(self, board_id: UUID, from_column_id: UUID, to_column_id: UUID, card_id: UUID, new_index: int):
 
-        if from_column_uuid != to_column_uuid:
-            card = board.get_card(from_column_uuid, card_uuid)
-            board.remove_card(from_column_uuid, card_uuid)
-            board.add_card(to_column_uuid, card.id, card.title, card.content)
-        board.move_card(to_column_uuid, card_uuid, new_index)
+        board = self.repository.get(board_id)
+        self.undo_state_handler.commit_undo_state(board)
+
+        if from_column_id != to_column_id:
+            card = board.get_card(from_column_id, card_id)
+            board.remove_card(from_column_id, card_id)
+            board.add_card(to_column_id, card.id, card.title, card.content)
+            self.undo_state_handler.increment_undo_tracker(board_id)
+            self.undo_state_handler.increment_undo_tracker(board_id)
+
+        board.move_card(to_column_id, card_id, new_index)
         self.save(board)
+        self.undo_state_handler.increment_undo_tracker(board_id)
 
-    def board_as_dict(self, board_id: str, version: str = None) -> dict:
-        board_uuid = uuid.UUID(board_id)
-        board = self.repository.get(board_uuid, version=version)
+    def undo(self, board_id: UUID):
+        self.undo_state_handler.undo(board_id)
+
+    def redo(self, board_id: UUID):
+        self.undo_state_handler.redo(board_id)
+
+    def board_as_dict(self, board_id: UUID) -> dict:
+        active_version = self.undo_state_handler.calculate_active_version(board_id)
+        print("rendering version: ", active_version)
+        board = self.repository.get(board_id, version=active_version)
 
         return {
             "board": {

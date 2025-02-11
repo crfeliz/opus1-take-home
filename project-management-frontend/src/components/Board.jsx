@@ -22,9 +22,9 @@ export default function Board() {
         setBoardId(loadBoardId.trim())
     }
 
-    const fetchBoard = async (id, version = null) => {
+    const fetchBoard = async (id = null) => {
         if (!id) return
-        const data = await boardService.get(id, version)
+        const data = await boardService.get(id)
         setBoardData(data.board)
     }
 
@@ -63,12 +63,14 @@ export default function Board() {
 
     const undo = async () => {
         if (!boardData) return
-        await fetchBoard(boardId, boardData.version - 1)
+        await boardService.undo(boardId)
+        await fetchBoard(boardId)
     }
 
     const redo = async () => {
         if (!boardData) return
-        await fetchBoard(boardId, boardData.version + 1)
+        await boardService.redo(boardId)
+        await fetchBoard(boardId)
     }
 
     // Copy board ID
