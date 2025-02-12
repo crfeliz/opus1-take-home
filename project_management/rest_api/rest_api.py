@@ -1,12 +1,15 @@
 from uuid import UUID
-from flask import Flask, request, jsonify, render_template
+
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from project_management.project_management import ProjectManagementApp
+
+from project_management.project_management_app import ProjectManagementApp
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app_instance = ProjectManagementApp()
+
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -14,10 +17,6 @@ def handle_exception(e):
     print(e)
     response.status_code = 500
     return response
-
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 
 # ---------------------- BOARD ----------------------
@@ -47,7 +46,6 @@ def board_as_dict():
     except Exception as e:
         print(e)
         return jsonify({"message": "Board not found"})
-
 
 
 # ---------------------- COLUMN ----------------------
@@ -147,6 +145,7 @@ def edit_card_content():
     app_instance.edit_card_content(board_id, column_id, card_id, content)
     return jsonify({"message": "Card content updated"})
 
+
 @app.route('/undo', methods=['POST'])
 def undo():
     print("UNDO_START")
@@ -155,6 +154,7 @@ def undo():
     app_instance.undo(board_id)
     print("UNDO_END")
     return jsonify({"message": "Board undo"})
+
 
 @app.route('/redo', methods=['POST'])
 def redo():

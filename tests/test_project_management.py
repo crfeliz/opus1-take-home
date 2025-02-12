@@ -1,10 +1,7 @@
 import unittest
-from uuid import UUID
-from project_management.project_management import (
+
+from project_management.project_management_app import (
     ProjectManagementApp,
-    Board,
-    Column,
-    Card,
 )
 
 
@@ -146,18 +143,18 @@ class TestProjectManagementApp(unittest.TestCase):
         col1 = self.app.add_column(board_id)
         col2 = self.app.add_column(board_id)
         c1 = self.app.add_card(board_id, col1)
-        c2 = self.app.add_card(board_id, col2)
+        self.app.add_card(board_id, col2)
         self.app.remove_card(board_id, col1, c1)
         self.app.remove_column(board_id, col2)
         board_dict = self.app.board_as_dict(board_id)
         self.assertEqual(len(board_dict["board"]["columns"]), 1)
         self.assertEqual(len(board_dict["board"]["columns"][0]["cards"]), 0)
 
-    def test_initial_undo_tracker_cursor(self):
+    def test_initial_undo_redo_tracker_cursor(self):
         board_id = self.app.create_board()
         board = self.app.repository.get(board_id)
-        tracker = self.app.repository.get(board.undo_tracker_id)
-        self.assertEqual(tracker.cursor, 2)
+        tracker = self.app.repository.get(board.undo_redo_tracker_id)
+        self.assertEqual(tracker.get_version_cursor(), board.version)
 
     def test_edit_board_title_increments_tracker(self):
         board_id = self.app.create_board()
@@ -166,44 +163,51 @@ class TestProjectManagementApp(unittest.TestCase):
         self.app.edit_board_title(board_id, "New Title")
         board_after = self.app.repository.get(board_id)
         self.assertEqual(board_after.title, "New Title")
-        new_cursor = self.app.undo_state_handler.get_version_cursor(board_id)
-        self.assertGreater(new_cursor, initial_version, "Cursor should increment after an edit.")
+        version_cursor = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        self.assertGreater(version_cursor, initial_version, "Cursor should increment after an edit.")
 
     def test_undo_decrements_cursor(self):
         board_id = self.app.create_board()
         self.app.edit_board_title(board_id, "Title 1")
         self.app.edit_board_title(board_id, "Title 2")
         self.app.edit_board_title(board_id, "Title 3")
-        current_cursor = self.app.undo_state_handler.get_version_cursor(board_id)
+        current_cursor = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.app.undo(board_id)
-        new_cursor = self.app.undo_state_handler.get_version_cursor(board_id)
+        new_cursor = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertLess(new_cursor, current_cursor, "Undo should lower the cursor.")
 
     def test_redo_increments_cursor(self):
         board_id = self.app.create_board()
         self.app.edit_board_title(board_id, "Title 1")
         self.app.edit_board_title(board_id, "Title 2")
-        current_cursor = self.app.undo_state_handler.get_version_cursor(board_id)
+        current_cursor = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.app.undo(board_id)
-        cursor_after_undo = self.app.undo_state_handler.get_version_cursor(board_id)
+        cursor_after_undo = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertLess(cursor_after_undo, current_cursor, "Cursor should decrease after undo.")
         self.app.redo(board_id)
-        cursor_after_redo = self.app.undo_state_handler.get_version_cursor(board_id)
+        cursor_after_redo = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertGreater(cursor_after_redo, cursor_after_undo, "Redo should raise the cursor.")
 
     def test_commit_updates_cursor(self):
         board_id = self.app.create_board()
-        self.app.edit_board_title(board_id, "Title Commit Test")
-        board = self.app.repository.get(board_id)
-        tracker_before = self.app.repository.get(board.undo_tracker_id)
-        current_cursor = tracker_before.cursor
-        self.app.edit_board_title(board_id, "Title After Commit")
-        tracker_after = self.app.repository.get(board.undo_tracker_id)
+        self.app.add_column(board_id)
+        self.app.add_column(board_id)
+        self.app.undo(board_id)
+        self.app.undo(board_id)
+
+        board_before = self.app.repository.get(board_id)
+        tracker_before = self.app.repository.get(board_before.undo_redo_tracker_id)
+
+        self.assertLess(tracker_before.get_version_cursor(), board_before.version,
+                        "Undo before commit should leave the cursor behind the board version")
+
+        self.app.edit_board_title(board_id, "Title")  # triggers commit
+
         board_after = self.app.repository.get(board_id)
-        self.assertEqual(tracker_after.cursor, board_after.version,
+        tracker_after = self.app.repository.get(board_after.undo_redo_tracker_id)
+        self.assertEqual(tracker_after.get_version_cursor(), board_after.version,
                          "After commit, the tracker cursor should equal the board version.")
 
-    # ---------------------- NEW COMPLEX TESTS ----------------------
     def test_complex_undo_redo_sequence(self):
         board_id = self.app.create_board()
         # Perform a series of title edits.
@@ -214,64 +218,122 @@ class TestProjectManagementApp(unittest.TestCase):
         # Undo three times.
         for _ in range(3):
             self.app.undo(board_id)
-        active_version_after_undo = self.app.undo_state_handler.get_version_cursor(board_id)
+        active_version_after_undo = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertLess(active_version_after_undo, final_version,
-                        "After undos, active version should be less than final version")
+                        "After undoing multiple, active version should be less than final version")
+
+        board_dict = self.app.board_as_dict(board_id)
+        self.assertEqual(board_dict["board"]["title"], "Title2",
+                         "Rendered board title should be Title2")
+
         # Redo until we reach final version.
-        while self.app.undo_state_handler.get_version_cursor(board_id) < final_version:
+        while self.app.undo_redo_state_manager.get_version_cursor(board_id) < final_version:
             self.app.redo(board_id)
-        active_version_after_redo = self.app.undo_state_handler.get_version_cursor(board_id)
+        active_version_after_redo = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertEqual(active_version_after_redo, final_version,
-                         "After redos, active version should equal final version")
+                         "After redoing multiple, active version should equal final version")
+        # Assert rendered output reflects final title.
+        board_dict = self.app.board_as_dict(board_id)
+        self.assertEqual(board_dict["board"]["title"], "Title5",
+                         "Rendered board title should be Title5")
+        self.assertEqual(board_dict["board"]["version"], final_board.version,
+                         "Rendered board version should match final version")
 
     def test_new_operation_breaks_redo_chain(self):
         board_id = self.app.create_board()
-        # Perform several title edits.
-        for t in ["Title1", "Title2", "Title3"]:
-            self.app.edit_board_title(board_id, t)
-        # Undo once.
+        # Create a few columns.
+        for _ in range(3):
+            self.app.add_column(board_id)
+        # Undo twice.
         self.app.undo(board_id)
-        cursor_after_undo = self.app.undo_state_handler.get_version_cursor(board_id)
-        # Now perform a new edit that should break the redo chain.
-        self.app.edit_board_title(board_id, "Title4")
-        cursor_after_new_op = self.app.undo_state_handler.get_version_cursor(board_id)
+        self.app.undo(board_id)
+        # At this point, the tracker cursor should be less than the board's tip.
+        cursor_before_new_op = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        board_before_new_op = self.app.repository.get(board_id)
+        self.assertLess(cursor_before_new_op,
+                        board_before_new_op.version, "After undo cursor should be less than the board's tip")
+
+        # Now perform a new operation: add a column and then edit its title.
+        column_id = self.app.add_column(board_id)
+        self.app.edit_column_title(board_id, column_id, "LastOne")
+        cursor_after_new_op = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         # Attempt to redo.
         self.app.redo(board_id)
-        cursor_after_redo = self.app.undo_state_handler.get_version_cursor(board_id)
+        cursor_after_redo = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         # Since the redo chain is broken, the cursor should remain unchanged.
         self.assertEqual(cursor_after_new_op, cursor_after_redo,
                          "New operation should break the redo chain")
+        # Also assert that the rendered board reflects the new column title.
+        board_dict = self.app.board_as_dict(board_id)
+        # Look for the column with the expected title.
+        column_titles = [col["title"] for col in board_dict["board"]["columns"]]
+        self.assertIn("LastOne", column_titles,
+                      "Rendered board should include a column titled 'LastOne'")
 
     def test_multiple_undo_beyond_minimum(self):
         board_id = self.app.create_board()
-        # Perform a couple of edits.
+        # Perform two title edits.
         for t in ["Title1", "Title2"]:
             self.app.edit_board_title(board_id, t)
         # Attempt many undos.
         for _ in range(10):
             self.app.undo(board_id)
-        active_version = self.app.undo_state_handler.get_version_cursor(board_id)
-        # The cursor should not fall below the minimal value (which is 2).
+        active_version = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        # The cursor should not fall below the minimal value (which is 2)
         self.assertGreaterEqual(active_version, 2,
                                 "Cursor should not fall below the minimum allowed value")
+        # Assert that rendered board shows the earliest title ("Title1") if undo goes past the second edit.
+        board_dict = self.app.board_as_dict(board_id)
+        self.assertEqual(board_dict["board"]["title"], "",
+                         "Rendered board title should be empty after excessive undos")
 
     def test_stress_undo_redo_commit(self):
         board_id = self.app.create_board()
-        # Perform a large number of edits.
+
+        # version should end at 22
         for i in range(20):
             self.app.edit_board_title(board_id, f"Title {i}")
-        # Do a series of undos and redos in nested loops.
+
+        # cursor should be 12
+        for _ in range(10):
+            self.app.undo(board_id)
+
+        # cursor should be 17
         for _ in range(5):
-            for _ in range(3):
-                self.app.undo(board_id)
-            for _ in range(3):
-                self.app.redo(board_id)
+            self.app.redo(board_id)
+
+        self.assertEqual(self.app.undo_redo_state_manager.get_version_cursor(board_id),
+                         17,
+                         "cursor should be 17 after the given undo redo sequence")
+
         # Perform a final edit to trigger a commit.
         self.app.edit_board_title(board_id, "Final Title")
         board_after = self.app.repository.get(board_id)
-        active_version = self.app.undo_state_handler.get_version_cursor(board_id)
+        active_version = self.app.undo_redo_state_manager.get_version_cursor(board_id)
         self.assertEqual(active_version, board_after.version,
                          "After final commit, the tracker cursor should match the board version")
+        self.assertEqual(self.app.undo_redo_state_manager.get_version_cursor(board_id),
+                         24, "after the given sequence the version should be 24")
+        # Assert that rendered board reflects the final title.
+        board_dict = self.app.board_as_dict(board_id)
+        self.assertEqual(board_dict["board"]["title"], "Final Title",
+                         "Rendered board title should be 'Final Title' after stress test")
+        self.assertEqual(board_dict["board"]["version"], board_after.version,
+                         "Rendered board version should match the board's final version")
+
+        self.app.undo(board_id)  # should jump cursor back to 17
+        active_version = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        self.assertEqual(active_version, 17, "undo should cause cursor to jump from commit to reference")
+
+        self.app.undo(board_id)  # cursor is 16
+        self.app.redo(board_id)  # cursor is 17
+        active_version = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        self.assertEqual(active_version, 17, "redo should allow cursor to land on reference")
+        self.app.redo(board_id)  # cursor is 24
+        active_version = self.app.undo_redo_state_manager.get_version_cursor(board_id)
+        self.assertEqual(active_version,
+                         24,
+                         "attempt to redo past the reference should jump to the commit + 1")
 
 
 if __name__ == "__main__":

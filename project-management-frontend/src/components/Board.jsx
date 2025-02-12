@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react'
+import React, {useEffect, useState} from 'react'
 import Column from './Column.jsx'
 import {EditText} from 'react-edit-text'
 import 'react-edit-text/dist/index.css'
