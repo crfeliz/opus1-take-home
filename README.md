@@ -30,6 +30,7 @@ npm run dev
 ### 🧪 Backend Tests
 
 ```sh
+source ./venv/bin/activate
 pytest
 ```
 
