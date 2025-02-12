@@ -26,7 +26,7 @@ npm run dev
 
 ---
 
-### 🧪 Tests
+### 🧪 Backend Tests
 
 ```sh
 pytest
