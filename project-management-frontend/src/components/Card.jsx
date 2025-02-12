@@ -166,7 +166,7 @@ export default function Card({
                         onBlur={() => setIsEditing(false)}
                         className="edit-text text-info h5"
                         inputClassName="editing-text"
-                        style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
 
                     />
                 </div>
