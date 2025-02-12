@@ -25,3 +25,11 @@ npm run dev
 ```
 
 ---
+
+### 🧪 Tests
+
+```sh
+pytest
+```
+
+---
